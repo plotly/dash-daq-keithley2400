@@ -41,19 +41,27 @@ def generate_lab_layout(theme='light'):
             className='row',
             children=[
                 html.Div(
-                    className="ten columns",
+                    className="eight columns",
                     children=[
                         dcc.Graph(
                             id='IV_graph',
                             figure={
                                 'data': [],
                                 'layout': dict(
-                                    paper_bgcolor=bkg_color[theme],
-                                    plot_bgcolor=bkg_color[theme],
+                                    paper_bgcolor='black',
+                                    plot_bgcolor='red',
                                     font=dict(
                                         color=text_color[theme],
                                         size=15,
-                                    )
+                                    ),
+                                    xaxis={
+                                        'color': grid_color[theme],
+                                        'gridcolor': grid_color[theme]
+                                    },
+                                    yaxis={
+                                        'color': grid_color[theme],
+                                        'gridcolor': grid_color[theme]
+                                    }
                                 )
                             }
                         )
@@ -69,18 +77,21 @@ def generate_lab_layout(theme='light'):
                     className="five columns",
                     children=[
                         daq.Knob(id='knob_V')
-                    ],
-                    style={'align': 'center'}
+                    ]
                 ),
                 html.Div(
                     className="five columns",
                     children=[
                         daq.Knob(id='knob_I')
-                    ],
-                    style={'align': 'center'}
+                    ]
                 )
             ],
-            style={'align': 'center'}
+            style={
+                'width': '100%',
+                'flexDirection': 'column',
+                'alignItems': 'center',
+                'justifyContent': 'space-between'
+            }
         ),
         html.Div(
             className='row',
@@ -89,53 +100,24 @@ def generate_lab_layout(theme='light'):
                     id='',
                     className="five columns",
                     children=[
-                        dcc.Graph(
-                            id='A_graph',
-                            figure={
-                                'data': [],
-                                'layout': dict(
-                                    paper_bgcolor=bkg_color[theme],
-                                    plot_bgcolor=bkg_color[theme],
-                                    font=dict(
-                                        color=text_color[theme],
-                                        size=15,
-                                    )
-                                )
-                            }
-                        )
+                        html.H5('Here the voltage')
                     ]
                 ),
                 html.Div(
                     id='graph_controls',
                     className="five columns",
                     children=[
-                        dcc.Graph(
-                            id='B_graph',
-                            figure={
-                                'data': [],
-                                'layout': dict(
-                                    paper_bgcolor=bkg_color[theme],
-                                    plot_bgcolor=bkg_color[theme],
-                                    font=dict(
-                                        color=text_color[theme],
-                                        size=15,
-                                    )
-                                )
-                            }
-                        )
+                        html.H5('Here the current')
                     ]
                 )
-            ],
-            style={
-                'align': 'center',
-                'border-margin': 'red'
-            }
+            ]
         ),
         html.Div(
             className='row',
-            children=html.Div(
-                className='ten columns',
-                children=dcc.Markdown('''
+            children=[
+                html.Div(
+                    className='ten columns',
+                    children=dcc.Markdown('''
 **What is this app about?**
 
 This is an app to show the graphic elements of Dash DAQ used to create an
@@ -147,18 +129,19 @@ generated randomly for demonstration purposes.
 
 DESCRIBE HOW TO USE THE APP HERE You can purchase the Dash DAQ components at [
 dashdaq.io](https://www.dashdaq.io/)
-                '''),
-                style={
-                    'max-width': '600px',
-                    'margin': '15px auto 300 px auto',
-                    'padding': '40px',
-                    'alignItems': 'center',
-                    'box-shadow': '10px 10px 5px rgba(0, 0, 0, 0.2)',
-                    'border': '1px solid #DFE8F3',
-                    'color': text_color[theme],
-                    'background': bkg_color[theme]
-                },
-            )
+                    '''),
+                    style={
+                        # 'max-width': '600px',
+                        'margin': '15px auto 300 px auto',
+                        'padding': '40px',
+                        'alignItems': 'center',
+                        'box-shadow': '10px 10px 5px rgba(0, 0, 0, 0.2)',
+                        'border': '1px solid #DFE8F3',
+                        'color': text_color[theme],
+                        'background': bkg_color[theme]
+                    }
+                )
+            ]
         )
     ]
 
@@ -176,7 +159,7 @@ root_layout = html.Div(
             id='header',
             className='banner',
             children=[
-                html.H2('Dash DAQ: pressure gauge monitoring'),
+                html.H2('Dash DAQ: IV curve tracer'),
                 daq.ToggleSwitch(
                     id='toggleTheme',
                     label='Dark/Light layout',
@@ -205,8 +188,10 @@ root_layout = html.Div(
         html.Div(
             id='page-content',
             children=generate_lab_layout(theme=MY_THEME),
-            className='ten columns',
-            style={'width': '100%'}
+            # className='ten columns',
+            style={
+                'width': '100%'
+            }
         )
     ]
 )
@@ -236,7 +221,6 @@ def page_layout(value):
     [State('page-content', 'style')]
 )
 def page_style(value, style_dict):
-    print(style_dict)
 
     if value:
         theme = 'dark'
@@ -245,7 +229,6 @@ def page_style(value, style_dict):
 
     style_dict['color'] = text_color[theme]
     style_dict['background'] = bkg_color[theme]
-    style_dict['border'] = '1px solid red'
 
     return style_dict
 
