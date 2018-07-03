@@ -10,12 +10,17 @@
 	pip install -r requirements.txt
 	```
 
+	note : the package dash_daq should be delivered to you upon paid 
+	subscription of a package, please visit 
+	[our website](https://www.dashdaq.io) to get a subscription :)
+	
 2. Run the Dash demos
 		
+	To try out the interface without connecting to an instrument :
 	```
 	$ python app_mock.py
 	```
-	or
+	To try out the interface with an instrument
 	```
 	$ python app.py
 	```

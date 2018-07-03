@@ -1,9 +1,13 @@
 # In[]:
 # Import required libraries
+import numpy as np
+
+import plotly.graph_objs as go
 import dash
 import dash_html_components as html
 import dash_core_components as dcc
 from dash.dependencies import Input, Output, State, Event
+
 import dash_daq as daq
 
 app = dash.Dash('')
@@ -32,14 +36,172 @@ grid_color = {'dark': 'white', 'light': '#C8D4E3'}
 text_color = {'dark': 'white', 'light': '#506784'}
 
 
+def get_source_labels(source='V'):
+    """labels for source/measure elements"""
+
+    if source == 'V':
+        # we source voltage and measure current
+        source_label = 'Voltage'
+        measure_label = 'Current'
+    else:
+        # we source current and measure voltage
+        source_label = 'Current'
+        measure_label = 'Voltage'
+
+    return source_label, measure_label
+
+
+def get_source_units(source='V'):
+    """unitss for source/measure elements"""
+
+    if source == 'V':
+        # we source voltage and measure current
+        source_unit = 'V'
+        measure_unit = 'A'
+    else:
+        # we source current and measure voltage
+        source_unit = 'A'
+        measure_unit = 'V'
+
+    return source_unit, measure_unit
+
+
+def generate_source_mode_layout(source='V', mode='single'):
+    """"generate the layout of the source and mode options
+
+    source : 'V' or 'I'
+    mode : 'single' or 'sweep'
+
+    return
+    list of dash core components
+    """
+
+    source_label, measure_label = get_source_labels(source)
+
+    source_unit, measure_unit = get_source_units(source)
+
+    h_style = {
+        'display': 'flex',
+        'flex-direction': 'row',
+        'alignItems': 'center',
+        'justifyContent': 'space-between',
+        'margin': '5px'
+    }
+
+    if mode == 'single':
+        # contains a know to adjust the source
+        children_source_div = [
+            daq.Knob(
+                id='source-knob',
+                value=0.0,
+                label=source_label
+            )
+        ]
+
+        mode_style = {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+
+    else:
+        # contains start, stop and step of the sweep
+        children_source_div = [
+            html.H4("%s sweep" % source_label),
+            html.Div(
+                [
+                    html.H2('Start'),
+                    html.Br(),
+                    daq.PrecisionInput(
+                        id='source-start',
+                        precision=4,
+                        label=' %s' % source_unit,
+                        labelPosition='right'
+                    )
+                ],
+                style=h_style
+            ),
+            html.Div(
+                [
+                    html.H2('Stop'),
+                    daq.PrecisionInput(
+                        id='source-stop',
+                        precision=4,
+                        label=' %s' % source_unit,
+                        labelPosition='right'
+                    )
+                ],
+                style=h_style
+            ),
+            html.Div(
+                [
+                    html.H2('Step'),
+                    daq.PrecisionInput(
+                        id='source-step',
+                        precision=4,
+                        label=' %s' % source_unit,
+                        labelPosition='right'
+                    )
+                ],
+                style=h_style
+            )
+        ]
+
+        mode_style = {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+
+    return [
+        # source controls
+        html.Div(
+            id='source-div',
+            className="three columns",
+            children=children_source_div,
+            style=mode_style
+        ),
+        # trigger measure button
+        html.Div(
+            id='trigger-div',
+            className="two columns",
+            children=[
+                daq.StopButton(
+                    id='trigger-measure',
+                    buttonText='Measure %s' % mode
+                )
+            ]
+        ),
+        # display the measured value
+        html.Div(
+            id='measure-div',
+            className="five columns",
+            children=[
+                daq.LEDDisplay(
+                    id="source-display",
+                    label='Applied %s (%s)' % (source_label, source_unit),
+                    value="0.0000"
+                ),
+                daq.LEDDisplay(
+                    id="measure-display",
+                    label='Measured %s (%s)' % (measure_label, measure_unit),
+                    value="0.0000"
+                )
+            ]
+        )
+
+    ]
+
+
 # Create controls using a function
-def generate_lab_layout(theme='light'):
-    """generate the layout of the app from a list of instruments"""
+def generate_main_layout(theme='light'):
+    """generate the layout of the app"""
 
     html_layout = [
         html.Div(
             className='row',
             children=[
+                # graph to trace out the result(s) of the measurement(s)
                 html.Div(
                     className="eight columns",
                     children=[
@@ -48,8 +210,8 @@ def generate_lab_layout(theme='light'):
                             figure={
                                 'data': [],
                                 'layout': dict(
-                                    paper_bgcolor='black',
-                                    plot_bgcolor='red',
+                                    paper_bgcolor=bkg_color[theme],
+                                    plot_bgcolor=bkg_color[theme],
                                     font=dict(
                                         color=text_color[theme],
                                         size=15,
@@ -66,26 +228,43 @@ def generate_lab_layout(theme='light'):
                             }
                         )
                     ]
+                ),
+                # controls and options for the IV tracer
+                html.Div(
+                    className="two columns",
+                    id='IV-options',
+                    children=[
+                        html.H4('Sourcing :'),
+                        dcc.RadioItems(
+                            id='source-choice',
+                            options=[
+                                {'label': 'Voltage', 'value': 'V'},
+                                {'label': 'Current', 'value': 'I'}
+                            ],
+                            value='V'
+                        ),
+                        html.Br(),
+                        html.H4('Measure mode :'),
+                        dcc.RadioItems(
+                            id='mode-choice',
+                            options=[
+                                {'label': 'Single measure', 'value': 'single'},
+                                {'label': 'Sweep', 'value': 'sweep'}
+                            ],
+                            value='single'
+                        ),
+                        html.Br(),
+                        daq.PowerButton(
+                            on=True
+                        )
+                    ]
                 )
             ]
         ),
         html.Div(
-            id='graph_controls',
+            id='measure_controls',
             className='row',
-            children=[
-                html.Div(
-                    className="five columns",
-                    children=[
-                        daq.Knob(id='knob_V')
-                    ]
-                ),
-                html.Div(
-                    className="five columns",
-                    children=[
-                        daq.Knob(id='knob_I')
-                    ]
-                )
-            ],
+            children=generate_source_mode_layout(),
             style={
                 'width': '100%',
                 'flexDirection': 'column',
@@ -155,6 +334,7 @@ root_layout = html.Div(
     id='main_page',
     children=[
         dcc.Location(id='url', refresh=False),
+        dcc.Interval(id='refresher', interval=1000),
         html.Div(
             id='header',
             className='banner',
@@ -187,7 +367,7 @@ root_layout = html.Div(
         ),
         html.Div(
             id='page-content',
-            children=generate_lab_layout(theme=MY_THEME),
+            children=generate_main_layout(theme=MY_THEME),
             # className='ten columns',
             style={
                 'width': '100%'
@@ -205,14 +385,34 @@ app.layout = root_layout
 # In[]:
 # Create callbacks
 # generate the callbacks between the instrument and the app
+
 @app.callback(
     Output('page-content', 'children'),
-    [Input('toggleTheme', 'value')])
+    [Input('toggleTheme', 'value')]
+)
 def page_layout(value):
     if value:
-        return generate_lab_layout('dark')
+        return generate_main_layout('dark')
     else:
-        return generate_lab_layout('light')
+        return generate_main_layout('light')
+
+
+@app.callback(
+    Output('measure_controls', 'children'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def source_choice_toggle(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    return generate_source_mode_layout(src_val, mode_val)
 
 
 @app.callback(
@@ -233,73 +433,111 @@ def page_style(value, style_dict):
     return style_dict
 
 
-# @app.callback(
-#     Output('graph', 'figure'),
-#     [
-#         Input('interval', 'n_intervals'),
-#         Input('measuring', 'value'),
-#         Input('%s_channel' % (pressure_gauge.unique_id()), 'value'),
-#         Input('toggleTheme', 'value')
-#     ])
-# def update_graph(n_interval, is_measuring, selected_params, is_dark_theme):
-#
-#     if is_dark_theme:
-#         theme = 'dark'
-#     else:
-#         theme = 'light'
-#     # here one should write the script of what the instrument do
-#     data_for_graph = []
-#     for instr in instrument_rack:
-#
-#         # triggers the measure on the selected channels
-#         if is_measuring:
-#             for instr_channel in selected_params:
-#                 instr.measure(instr_param='%s' % instr_channel)
-#
-#         # collects the data measured by all channels to update the graph
-#         for instr_chan in selected_params:
-#
-#             idx_gauge = instr.measure_params.index(instr_chan)
-#
-#             if instr.measured_data[instr_chan]:
-#                 xdata = 1000*instr.measured_data['%s_time' % instr_chan]
-#                 ydata = instr.measured_data[instr_chan]
-#                 data_for_graph.append(
-#                     go.Scatter(
-#                         x=xdata,
-#                         y=ydata,
-#                         mode='lines+markers',
-#                         name='%s:%s' % (instr, instr_chan),
-#                         line={
-#                             'color': line_colors[idx_gauge],
-#                             'width': 2
-#                         }
-#                     )
-#                 )
-#     # TODO should get the option of the graph to not override it every time
-#
-#     return {
-#         'data': data_for_graph,
-#         'layout': dict(
-#             xaxis={
-#                 'type': 'date',
-#                 'title': 'Time',
-#                 'color': text_color[theme],
-#                 'gridcolor': grid_color[theme]
-#             },
-#             yaxis={
-#                 'title': 'Pressure (mbar)',
-#                 'gridcolor': grid_color[theme]
-#             },
-#             font=dict(
-#                 color=text_color[theme],
-#                 size=15,
-#             ),
-#             margin={'l': 100, 'b': 100, 't': 50, 'r': 20, 'pad': 0},
-#             plot_bgcolor=bkg_color[theme],
-#             paper_bgcolor='rgba(0,0,0,0)'
-#         )
-#     }
+@app.callback(
+    Output('source-display', 'value'),
+    [],
+    [
+        State('source-knob', 'value'),
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('trigger-measure', 'click')
+    ]
+)
+def update_source_display(start, src_val, mode_val):
+    """"read the source value from the instrument"""
+    # initiate a measure of the KT2400
+    # read the source value
+    return start
+
+
+@app.callback(
+    Output('measure-display', 'value'),
+    [
+        Input('source-display', 'value')
+    ],
+    [
+        State('source-knob', 'value'),
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ]
+)
+def update_measure_display(applied_src, start, src_val, mode_val):
+    """"read the measured value from the instrument"""
+    # check that the applied value correspond to source-knob
+    # initiate a measure of the KT2400
+    # read the measure value and return it
+    return np.round(np.random.rand(), 4)
+
+
+@app.callback(
+    Output('IV_graph', 'figure'),
+    [
+        Input('toggleTheme', 'value')
+    ],
+    [
+        State('source-knob', 'value'),
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('trigger-measure', 'click')
+    ]
+)
+def update_graph(theme, start, src_val, mode_val):
+    """"update the IV graph"""
+    if theme:
+        theme = 'dark'
+    else:
+        theme = 'light'
+
+    source_label, measure_label = get_source_labels(src_val)
+
+    source_unit, measure_unit = get_source_units(src_val)
+
+    if mode_val == 'single':
+        pass
+    else:
+        pass
+    xdata = 10 * np.squeeze(np.random.rand(10, 1))
+    ydata = 10 * np.squeeze(np.random.rand(10, 1))
+    print(xdata)
+    print(ydata)
+    data_for_graph = [
+        go.Scatter(
+            x=xdata,
+            y=ydata,
+            mode='lines+markers',
+            name='IV curve',
+            line={
+                'color': '#EF553B',
+                'width': 2
+            }
+        )
+    ]
+
+    return {
+        'data': data_for_graph,
+        'layout': dict(
+            xaxis={
+                'title': 'Applied %s (%s)' % (source_label, source_unit),
+                'color': text_color[theme],
+                'gridcolor': grid_color[theme]
+            },
+            yaxis={
+                'title': 'Measured %s (%s)' % (measure_label, measure_unit),
+                'gridcolor': grid_color[theme]
+            },
+            font=dict(
+                color=text_color[theme],
+                size=15,
+            ),
+            margin={'l': 100, 'b': 100, 't': 50, 'r': 20, 'pad': 0},
+            plot_bgcolor=bkg_color[theme],
+            paper_bgcolor=bkg_color[theme]
+        )
+    }
 
 
 # In[]:
