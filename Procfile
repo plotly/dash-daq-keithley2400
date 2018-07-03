@@ -1,1 +1,1 @@
-web: gunicorn demo_pfeiffer_gauge_mock:server
+web: gunicorn app_mock:server
