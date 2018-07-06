@@ -131,7 +131,12 @@ def generate_source_mode_layout(source='V', mode='single'):
 
     # Contains inputs for values of start, stop and step of the sweep
     children_sweep_div = [
-        html.H4("%s sweep:" % source_label),
+        html.Div(
+            id='sweep-title',
+            children=html.H4(
+                "%s sweep:" % source_label
+            )
+        ),
         html.Div(
             [
                 html.H2('Start'),
@@ -476,8 +481,27 @@ def page_layout(value):
         return generate_main_layout('light')
 
 
+# @app.callback(
+#     Output('measure_controls', 'children'),
+#     [],
+#     [
+#         State('source-choice', 'value'),
+#         State('mode-choice', 'value')
+#     ],
+#     [
+#         Event('source-choice', 'change'),
+#         Event('mode-choice', 'change')
+#     ]
+# )
+# def source_choice_toggle(src_val, mode_val):
+#     """update the Radio Items choosing voltage or current source"""
+#
+#     return generate_source_mode_layout(src_val, mode_val)
+
+# ======= Callbacks for changing labels =======
+
 @app.callback(
-    Output('measure_controls', 'children'),
+    Output('source-knob', 'label'),
     [],
     [
         State('source-choice', 'value'),
@@ -488,11 +512,203 @@ def page_layout(value):
         Event('mode-choice', 'change')
     ]
 )
-def source_choice_toggle(src_val, mode_val):
+def source_knob_label(src_val, mode_val):
     """update the Radio Items choosing voltage or current source"""
 
-    return generate_source_mode_layout(src_val, mode_val)
+    source_label, measure_label = get_source_labels(src_val)
 
+    return source_label
+
+
+@app.callback(
+    Output('source-knob-display', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def source_knob_display_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_label, measure_label = get_source_labels(src_val)
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return 'Value : %s (%s)' % (source_label, source_unit)
+
+
+@app.callback(
+    Output('sweep-start', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def sweep_start_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return source_unit
+
+
+@app.callback(
+    Output('sweep-stop', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def sweep_stop_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return source_unit
+
+@app.callback(
+    Output('sweep-step', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def sweep_step_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return source_unit
+
+
+@app.callback(
+    Output('sweep-title', 'children'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def sweep_title_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_label, measure_label = get_source_labels(src_val)
+
+    return html.H4("%s sweep:" % source_label)
+
+
+@app.callback(
+    Output('source-display', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def source_display_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_label, measure_label = get_source_labels(src_val)
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return 'Applied %s (%s)' % (source_label, source_unit)
+
+
+@app.callback(
+    Output('measure-display', 'label'),
+    [],
+    [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+        Event('mode-choice', 'change')
+    ]
+)
+def measure_display_label(src_val, mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    source_label, measure_label = get_source_labels(src_val)
+    source_unit, measure_unit = get_source_units(src_val)
+
+    return 'Measured %s (%s)' % (measure_label, measure_unit)
+
+
+
+@app.callback(
+    Output('single_div', 'style'),
+    [],
+    [
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('mode-choice', 'change')
+    ]
+)
+def single_div_toggle_style(mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    if mode_val == 'single':
+        return  {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+    else:
+        return {'display': 'none'}
+
+
+@app.callback(
+    Output('sweep_div', 'style'),
+    [],
+    [
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('mode-choice', 'change')
+    ]
+)
+def sweep_div_toggle_style(mode_val):
+    """update the Radio Items choosing voltage or current source"""
+
+    if mode_val == 'single':
+        return {'display': 'none'}
+    else:
+        return {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+
+# ======= Interval callbacks =======
 
 @app.callback(
     Output('refresher', 'interval'),
@@ -576,9 +792,6 @@ def sweep_activation_toggle(sourced_val, swp_on, swp_stop, swp_step, mode_val):
             return float(sourced_val) < float(swp_stop)-float(swp_step)
         else:
             return True
-
-
-
 
 
 @app.callback(
