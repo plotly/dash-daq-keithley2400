@@ -7,7 +7,7 @@ PyVISA==1.9.0
 serial==0.0.54
 dash-renderer==0.12.1
 dash-html-components==0.10.1
-dash-core-components==0.22.1
+dash-core-components
 gunicorn
 dash_daq-0.0.2.tar.gz
 pylint
