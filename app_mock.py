@@ -92,186 +92,24 @@ def get_source_units(source='V'):
     return source_unit, measure_unit
 
 
-@function_hdr
-def generate_source_mode_layout(source='V', mode='single'):
-    """"Generate the layout of the source and mode options
-
-    source : 'V' or 'I'
-    mode : 'single' or 'sweep'
-
-    return
-    list of dash core components
-    """
-
-    source_label, measure_label = get_source_labels(source)
-
-    source_unit, measure_unit = get_source_units(source)
-
-    h_style = {
-        'display': 'flex',
-        'flex-direction': 'row',
-        'alignItems': 'center',
-        'justifyContent': 'space-between',
-        'margin': '5px'
-    }
-
-    # Contains a knob to adjust the value of the source
-    children_single_div = [
-        daq.Knob(
-            id='source-knob',
-            value=0.0,
-            label=source_label
-        ),
-        daq.LEDDisplay(
-            id="source-knob-display",
-            label='Value : %s (%s)' % (source_label, source_unit),
-            value="0.0000"
-        )
-    ]
-
-    # Contains inputs for values of start, stop and step of the sweep
-    children_sweep_div = [
-        html.Div(
-            id='sweep-title',
-            children=html.H4(
-                "%s sweep:" % source_label
-            )
-        ),
-        html.Div(
-            [
-                html.H2('Start'),
-                html.Br(),
-                daq.PrecisionInput(
-                    id='sweep-start',
-                    precision=4,
-                    label=' %s' % source_unit,
-                    labelPosition='right',
-                    value=1
-                )
-            ],
-            style=h_style
-        ),
-        html.Div(
-            [
-                html.H2('Stop'),
-                daq.PrecisionInput(
-                    id='sweep-stop',
-                    precision=4,
-                    label=' %s' % source_unit,
-                    labelPosition='right',
-                    value=9
-                )
-            ],
-            title='The higher %s value of the sweep' % source_label,
-            style=h_style
-        ),
-        html.Div(
-            [
-                html.H2('Step'),
-                daq.PrecisionInput(
-                    id='sweep-step',
-                    precision=4,
-                    label=' %s' % source_unit,
-                    labelPosition='right',
-                    value=1
-                )
-            ],
-            style=h_style
-        ),
-        html.Div(
-            [
-                daq.Indicator(
-                    id='sweep-status',
-                    label='Sweep active',
-                    value=False
-                )
-            ],
-            style=h_style
-        )
-    ]
-
-    if mode == 'single':
-        # Turn off the display of the sweep components
-        single_style = {
-            'display': 'flex',
-            'flex-direction': 'column',
-            'alignItems': 'center'
-        }
-        sweep_style = {'display': 'none'}
-
-        measure_btn_label = 'Measure %s' % mode
-
-    else:
-        # Turn off the display of the single measure components
-        single_style = {'display': 'none'}
-        sweep_style = {
-            'display': 'flex',
-            'flex-direction': 'column',
-            'alignItems': 'center'
-        }
-
-        measure_btn_label = 'Start sweep'
-
-    # Build the source div so that all the components are always there
-    # however we see either the single measure or the sweep
-    children_source_div = [
-        html.Div(
-            id='single_div',
-            children=children_single_div,
-            style=single_style
-        ),
-        html.Div(
-            id='sweep_div',
-            children=children_sweep_div,
-            style=sweep_style
-        )
-    ]
-
-    return [
-        # Sourcing controls
-        html.Div(
-            id='source-div',
-            className="three columns",
-            children=children_source_div
-            #style=mode_style
-        ),
-        # Trigger measure button
-        html.Div(
-            id='trigger-div',
-            className="two columns",
-            children=[
-                daq.StopButton(
-                    id='trigger-measure',
-                    buttonText=measure_btn_label,
-                    size=150
-                )
-            ]
-        ),
-        # Display the sourced and measured values
-        html.Div(
-            id='measure-div',
-            className="five columns",
-            children=[
-                daq.LEDDisplay(
-                    id="source-display",
-                    label='Applied %s (%s)' % (source_label, source_unit),
-                    value="12.0000"
-                ),
-                daq.LEDDisplay(
-                    id="measure-display",
-                    label='Measured %s (%s)' % (measure_label, measure_unit),
-                    value="10.0000"
-                )
-            ]
-        )
-
-    ]
+h_style = {
+    'display': 'flex',
+    'flex-direction': 'row',
+    'alignItems': 'center',
+    'justifyContent': 'space-between',
+    'margin': '5px'
+}
 
 
 # Create controls using a function
 @function_hdr
-def generate_main_layout(theme='light'):
+def generate_main_layout(theme='light', data=None):
     """generate the layout of the app"""
+
+    # Doesn't clear the data of the graph
+    if data is None:
+        data = []
+
     html_layout = [
         html.Div(
             className='row',
@@ -283,7 +121,7 @@ def generate_main_layout(theme='light'):
                         dcc.Graph(
                             id='IV_graph',
                             figure={
-                                'data': [],
+                                'data': data,
                                 'layout': dict(
                                     paper_bgcolor=bkg_color[theme],
                                     plot_bgcolor=bkg_color[theme],
@@ -326,7 +164,7 @@ def generate_main_layout(theme='light'):
                         html.Br(),
                         html.H4(
                             'Measure mode :',
-                            title='Choose if you want to do single measurements'
+                            title='Choose if you want to do single measurement'
                                   ' or to start a sweep'
                         ),
                         dcc.RadioItems(
@@ -348,7 +186,136 @@ def generate_main_layout(theme='light'):
         html.Div(
             id='measure_controls',
             className='row',
-            children=generate_source_mode_layout(),
+            children=[
+                # Sourcing controls
+                html.Div(
+                    id='source-div',
+                    className="three columns",
+                    children=[
+                        # To perform single measures adjusting the source with
+                        # a knob
+                        html.Div(
+                            id='single_div',
+                            children=[
+                                daq.Knob(
+                                    id='source-knob',
+                                    value=0.0,
+                                    label='Voltage'
+                                ),
+                                daq.LEDDisplay(
+                                    id="source-knob-display",
+                                    label='Value : voltage (V)',
+                                    value="0.0000"
+                                )
+                            ],
+                            style={
+                                'display': 'flex',
+                                'flex-direction': 'column',
+                                'alignItems': 'center'
+                            }
+                        ),
+                        # To perfom automatic sweeps of the source
+                        html.Div(
+                            id='sweep_div',
+                            children=[
+                                html.Div(
+                                    id='sweep-title',
+                                    children=html.H4(
+                                        "Voltage sweep:"
+                                    )
+                                ),
+                                html.Div(
+                                    [
+                                        html.H2('Start'),
+                                        html.Br(),
+                                        daq.PrecisionInput(
+                                            id='sweep-start',
+                                            precision=4,
+                                            label=' V',
+                                            labelPosition='right',
+                                            value=1
+                                        )
+                                    ],
+                                    style=h_style
+                                ),
+                                html.Div(
+                                    [
+                                        html.H2('Stop'),
+                                        daq.PrecisionInput(
+                                            id='sweep-stop',
+                                            precision=4,
+                                            label=' V',
+                                            labelPosition='right',
+                                            value=9
+                                        )
+                                    ],
+                                    title='The highest value of the sweep',
+                                    style=h_style
+                                ),
+                                html.Div(
+                                    [
+                                        html.H2('Step'),
+                                        daq.PrecisionInput(
+                                            id='sweep-step',
+                                            precision=4,
+                                            label=' V',
+                                            labelPosition='right',
+                                            value=1
+                                        )
+                                    ],
+                                    style=h_style
+                                ),
+                                html.Div(
+                                    [
+                                        daq.Indicator(
+                                            id='sweep-status',
+                                            label='Sweep active',
+                                            value=False
+                                        )
+                                    ],
+                                    style=h_style
+                                )
+                            ],
+                            style={'display': 'none'}
+                        )
+                    ]
+                ),
+                # measure button and indicator
+                html.Div(
+                    id='trigger-div',
+                    className="two columns",
+                    children=[
+                        daq.StopButton(
+                            id='trigger-measure',
+                            buttonText='Single measure',
+                            size=150
+                        ),
+                        daq.Indicator(
+                            id='measure-triggered',
+                            value=False,
+                            style={'display': 'none'}
+                        ),
+                    ]
+                ),
+                # Display the sourced and measured values
+                html.Div(
+                    id='measure-div',
+                    className="five columns",
+                    children=[
+                        daq.LEDDisplay(
+                            id="source-display",
+                            label='Applied voltage (V)',
+                            value="0.0000"
+                        ),
+                        daq.LEDDisplay(
+                            id="measure-display",
+                            label='Measured current (A)',
+                            value="0.0000"
+                        )
+                    ]
+                )
+
+            ],
             style={
                 'width': '100%',
                 'flexDirection': 'column',
@@ -468,38 +435,43 @@ app.layout = root_layout
 
 # In[]:
 # Create callbacks
-# generate the callbacks between the instrument and the app
-
+# ======= Dark/light themes callbacks =======
 @app.callback(
     Output('page-content', 'children'),
-    [Input('toggleTheme', 'value')]
+    [
+        Input('toggleTheme', 'value')
+    ],
+    [
+        State('IV_graph', 'figure')
+    ]
 )
-def page_layout(value):
+def page_layout(value, fig):
+
     if value:
-        return generate_main_layout('dark')
+        return generate_main_layout('dark', data=fig['data'])
     else:
-        return generate_main_layout('light')
+        return generate_main_layout('light', data=fig['data'])
 
 
-# @app.callback(
-#     Output('measure_controls', 'children'),
-#     [],
-#     [
-#         State('source-choice', 'value'),
-#         State('mode-choice', 'value')
-#     ],
-#     [
-#         Event('source-choice', 'change'),
-#         Event('mode-choice', 'change')
-#     ]
-# )
-# def source_choice_toggle(src_val, mode_val):
-#     """update the Radio Items choosing voltage or current source"""
-#
-#     return generate_source_mode_layout(src_val, mode_val)
+@app.callback(
+    Output('page-content', 'style'),
+    [Input('toggleTheme', 'value')],
+    [State('page-content', 'style')]
+)
+def page_style(value, style_dict):
+    """update the theme of the app"""
+    if value:
+        theme = 'dark'
+    else:
+        theme = 'light'
+
+    style_dict['color'] = text_color[theme]
+    style_dict['background'] = bkg_color[theme]
+
+    return style_dict
+
 
 # ======= Callbacks for changing labels =======
-
 @app.callback(
     Output('source-knob', 'label'),
     [],
@@ -579,6 +551,7 @@ def sweep_stop_label(src_val, mode_val):
     source_unit, measure_unit = get_source_units(src_val)
 
     return source_unit
+
 
 @app.callback(
     Output('sweep-step', 'label'),
@@ -662,7 +635,7 @@ def measure_display_label(src_val, mode_val):
     return 'Measured %s (%s)' % (measure_label, measure_unit)
 
 
-
+# ======= Callbacks to change elements in the layout =======
 @app.callback(
     Output('single_div', 'style'),
     [],
@@ -677,7 +650,7 @@ def single_div_toggle_style(mode_val):
     """update the Radio Items choosing voltage or current source"""
 
     if mode_val == 'single':
-        return  {
+        return {
             'display': 'flex',
             'flex-direction': 'column',
             'alignItems': 'center'
@@ -708,6 +681,21 @@ def sweep_div_toggle_style(mode_val):
             'alignItems': 'center'
         }
 
+
+# ======= Applied/measured values display =======
+@app.callback(
+    Output('source-knob', 'value'),
+    [],
+    [],
+    [
+        Event('source-choice', 'change')
+    ]
+)
+def knob_reset():
+    """reset the display to 0 when the source is toggled"""
+    return '0'
+
+
 # ======= Interval callbacks =======
 
 @app.callback(
@@ -727,6 +715,7 @@ def interval_toggle(mode_val):
         return 1000000
     else:
         return 500
+
 
 @app.callback(
     Output('refresher', 'n_intervals'),
@@ -750,22 +739,6 @@ def reset_interval(mode_val, n_interval):
 
     return 0
 
-@app.callback(
-    Output('page-content', 'style'),
-    [Input('toggleTheme', 'value')],
-    [State('page-content', 'style')]
-)
-def page_style(value, style_dict):
-    """update the theme of the app"""
-    if value:
-        theme = 'dark'
-    else:
-        theme = 'light'
-
-    style_dict['color'] = text_color[theme]
-    style_dict['background'] = bkg_color[theme]
-
-    return style_dict
 
 @app.callback(
     Output('sweep-status', 'value'),
