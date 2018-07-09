@@ -27,9 +27,28 @@ app.scripts.config.serve_locally = True
 # line colors
 line_colors = ['#19d3f3', '#e763fa', '#00cc96', '#EF553B']
 
-fake_instrument_X = []
 
-fake_instrument_Y = []
+class UsefulVariables():
+    def __init__(self):
+        self.n_clicks = 0
+        self.n_refresh = 0
+        self.sourced_values = []
+        self.measured_values = []
+
+    def change_n_clicks(self, nclicks):
+        print('\nchanged n_clicks in the local vars \n')
+        self.n_clicks = nclicks
+
+    def change_n_refresh(self, nrefresh):
+        self.n_refresh = nrefresh
+
+    def reset_interval(self):
+        self.n_refresh = 0
+        self.sourced_values = []
+        self.measured_values = []
+
+
+local_vars = UsefulVariables()
 
 
 def function_hdr(func):
@@ -48,7 +67,7 @@ def fake_iv_relation(v, c1=1, c2=1, v_0c=10, i_sc=1):
     """
     if v < v_0c and v > 0:
         # return i_sc*(1-c1*np.exp(v/(c2*v_0c)-1))
-        return np.sqrt(v_0c)-np.sqrt(v)
+        return -np.round(np.sqrt(v_0c)-np.sqrt(v), 4)
     else:
         return 0
 
@@ -700,44 +719,52 @@ def knob_reset():
 
 @app.callback(
     Output('refresher', 'interval'),
-    [],
     [
-        State('mode-choice', 'value')
+        Input('sweep-status', 'value')
     ],
     [
-        Event('mode-choice', 'change')
+        State('mode-choice', 'value')
     ]
 )
-def interval_toggle(mode_val):
+def interval_toggle(swp_on, mode_val):
     """update the Radio Items choosing voltage or current source"""
 
     if mode_val == 'single':
         return 1000000
     else:
-        return 500
+        if swp_on:
+            return 500
+        else:
+            return 1000000
 
 
 @app.callback(
     Output('refresher', 'n_intervals'),
     [],
     [
+        State('sweep-status', 'value'),
         State('mode-choice', 'value'),
         State('refresher', 'n_intervals')
     ],
     [
-        Event('mode-choice', 'change')
+        Event('mode-choice', 'change'),
+        Event('trigger-measure', 'click')
     ]
 )
-def reset_interval(mode_val, n_interval):
+def reset_interval(swp_on, mode_val, n_interval):
     """update the Radio Items choosing voltage or current source"""
 
-    print('Interval reset')
-    print(n_interval)
-
-    fake_instrument_X = []
-    fake_instrument_Y = []
-
-    return 0
+    if mode_val == 'single':
+        print('Interval reset')
+        print(n_interval)
+        local_vars.reset_interval()
+        return 0
+    else:
+        if swp_on:
+            return n_interval
+        else:
+            local_vars.reset_interval()
+            return 0
 
 
 @app.callback(
@@ -746,6 +773,7 @@ def reset_interval(mode_val, n_interval):
         Input('source-display', 'value')
     ],
     [
+        State('measure-triggered', 'value'),
         State('sweep-status', 'value'),
         State('sweep-stop', 'value'),
         State('sweep-step', 'value'),
@@ -755,22 +783,85 @@ def reset_interval(mode_val, n_interval):
         Event('trigger-measure', 'click')
     ]
 )
-def sweep_activation_toggle(sourced_val, swp_on, swp_stop, swp_step, mode_val):
-    """update the Radio Items choosing voltage or current source"""
+def sweep_activation_toggle(
+    sourced_val,
+    meas_triggered,
+    swp_on,
+    swp_stop,
+    swp_step,
+    mode_val
+):
+    """decide whether to turn on or off the sweep
+    when single mode is selected, it is off by default
+    when sweep mode is selected, it enables the sweep if is wasn't on
+    otherwise it stops the sweep once the sourced value gets higher or equal
+    than the sweep limit minus the sweep step
+    """
 
     if mode_val == 'single':
         return False
     else:
         if swp_on:
-            return float(sourced_val) < float(swp_stop)-float(swp_step)
+            answer = float(sourced_val) <= float(swp_stop)-float(swp_step)
+            return answer
         else:
-            return True
+            if not meas_triggered:
+                # The 'trigger-measure' wasn't pressed yet
+                return False
+            else:
+                # Initiate a sweep
+                return True
+
+
+# ======= Measurements callbacks =======
+@app.callback(
+    Output('source-knob-display', 'value'),
+    [
+        Input('source-knob', 'value')
+    ]
+)
+def set_source_knob_display(knob_val):
+    """"set the value of the knob on a LED display"""
+    return knob_val
+
+
+@app.callback(
+    Output('measure-triggered', 'value'),
+    [
+        Input('trigger-measure', 'n_clicks'),
+    ],
+    [
+        State('mode-choice', 'value'),
+        State('sweep-status', 'value')
+    ],
+)
+def update_trigger_measure(
+    nclick,
+    mode_val,
+    swp_on
+):
+    """ Controls if a measure can be made or not
+    The indicator 'measure-triggered' can be set to True only by a click
+    on the 'trigger-measure' button or by the 'refresher' interval
+    """
+
+    if nclick is None:
+        nclick = 0
+
+    if int(nclick) != local_vars.n_clicks:
+        # It was triggered by a click on the trigger-measure button
+        local_vars.change_n_clicks(int(nclick))
+        return True
+    else:
+
+        return False
 
 
 @app.callback(
     Output('source-display', 'value'),
     [
-        Input('refresher', 'n_intervals')
+        Input('refresher', 'n_intervals'),
+        Input('measure-triggered', 'value'),
     ],
     [
         State('source-knob', 'value'),
@@ -781,110 +872,92 @@ def sweep_activation_toggle(sourced_val, swp_on, swp_stop, swp_step, mode_val):
         State('source-choice', 'value'),
         State('mode-choice', 'value'),
         State('sweep-status', 'value')
-    ],
-    [
-        Event('trigger-measure', 'click')
     ]
 )
 def set_source_display(
-        n_interval,
-        knob_val,
-        source_display_val,
-        swp_start,
-        swp_stop,
-        swp_step,
-        src_type,
-        mode_val,
-        swp_on
+    n_interval,
+    meas_triggered,
+    knob_val,
+    old_source_display_val,
+    swp_start,
+    swp_stop,
+    swp_step,
+    src_type,
+    mode_val,
+    swp_on
 ):
     """"set the source value to the instrument"""
 
-    # this assumes that the instrument has the right value because the callbacks
-    # cannot have multiple outputs and I can't make sure I am  setting the value
-    # before I measure the response...
-    if swp_on:
-        print(n_interval)
-        return float(swp_start) + int(n_interval) * float(swp_step)
-    else:
+    if mode_val == 'single':
         return knob_val
+    else:
+        if meas_triggered:
+            if swp_on:
+                answer = float(swp_start) \
+                         + (int(n_interval) - 1) * float(swp_step)
+                if answer > float(swp_stop):
+                    return old_source_display_val
+                else:
+                    return answer
+            else:
+                return old_source_display_val
+        else:
+            return old_source_display_val
 
 
 @app.callback(
     Output('measure-display', 'value'),
     [
-        Input('refresher', 'n_intervals')
+        Input('source-display', 'value')
     ],
     [
-        State('source-knob', 'value'),
-        State('sweep-start', 'value'),
-        State('sweep-stop', 'value'),
-        State('sweep-step', 'value'),
+        State('measure-triggered', 'value'),
+        State('measure-display', 'value'),
         State('source-choice', 'value'),
         State('mode-choice', 'value'),
         State('sweep-status', 'value')
-    ],
-    [
-        Event('trigger-measure', 'click')
     ]
 )
 def update_measure_display(
-        n_intervals,
-        knob_val,
-        swp_start,
-        swp_stop,
-        swp_step,
-        src_type,
-        mode_val,
-        swp_on
+    src_val,
+    meas_triggered,
+    meas_old_val,
+    src_type,
+    mode_val,
+    swp_on
 ):
     """"read the measured value from the instrument"""
     # check that the applied value correspond to source-knob
     # initiate a measure of the KT2400
     # read the measure value and return it
-    if swp_on:
-        print('set source interval')
-        print(n_intervals)
-        source_value = float(swp_start) + int(n_intervals) * float(swp_step)
+    if mode_val == 'single':
+        if meas_triggered:
+            source_value = float(src_val)
 
-        fake_instrument_X.append(source_value)
+            local_vars.sourced_values.append(source_value)
 
-        print('set source')
-        print(source_value)
-        print(fake_instrument_X)
+            measured_value = fake_iv_relation(source_value)
+            local_vars.measured_values.append(measured_value)
 
-        measured_value = fake_iv_relation(float(source_value))
-        fake_instrument_Y.append(measured_value)
-
-        print('update_measure')
-        print(measured_value)
-        print(fake_instrument_Y)
-        return measured_value
-
+            return measured_value
+        else:
+            return meas_old_val
 
     else:
+        if meas_triggered:
 
-        if mode_val == 'single':
-            source_value = knob_val
-            # set the source value of the KT2400
-            #have an if with scr_val
-            #need an indicator is sweep as state which value is linked to a interval
-            #need an interval input to trigger the sweep (values caclulated with
-            # sweep_start + n_interval until this is larger than sweep_stop,
-            # then we stop the indicator
+            if swp_on:
+                source_value = float(src_val)
+                local_vars.sourced_values.append(source_value)
 
-            fake_instrument_X.append(source_value)
+                measured_value = fake_iv_relation(source_value)
+                local_vars.measured_values.append(measured_value)
 
-            print('set source')
-            print(source_value)
-            print(fake_instrument_X)
-
-            measured_value = fake_iv_relation(float(source_value))
-            fake_instrument_Y.append(measured_value)
-
-            print('update_measure')
-            print(measured_value)
-            print(fake_instrument_Y)
-            return measured_value
+                return measured_value
+            else:
+                return meas_old_val
+        else:
+            return meas_old_val
 
 
 @app.callback(
@@ -894,13 +967,24 @@ def update_measure_display(
         Input('measure-display', 'value')
     ],
     [
+        State('measure-triggered', 'value'),
         State('source-display', 'value'),
         State('IV_graph', 'figure'),
         State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('mode-choice', 'value'),
+        State('sweep-status', 'value')
     ]
 )
-def update_graph(theme, measured_val, sourced_val, graph_data, src_type, mode_val):
+def update_graph(
+        theme,
+        measured_val,
+        meas_triggered,
+        sourced_val,
+        graph_data,
+        src_type,
+        mode_val,
+        swp_on
+):
     """"update the IV graph"""
     if theme:
         theme = 'dark'
@@ -908,57 +992,128 @@ def update_graph(theme, measured_val, sourced_val, graph_data, src_type, mode_va
         theme = 'light'
 
     print("graph triggered")
-
+    print(sourced_val)
+    print(measured_val)
+    print(meas_triggered)
+    print(swp_on)
     # Labels for sourced and measured quantities
     source_label, measure_label = get_source_labels(src_type)
     source_unit, measure_unit = get_source_units(src_type)
 
     if mode_val == 'single':
-        pass
-    else:
-        pass
+        if meas_triggered:
+            # The change to the graph was triggered by a measure
 
-    # Sort the data so the are ascending in x
-    data_array = np.vstack([fake_instrument_X, fake_instrument_Y])
-    data_array = data_array[:, data_array[0, :].argsort()]
+            # Sort the data so the are ascending in x
+            data_array = np.vstack(
+                [
+                    local_vars.sourced_values,
+                    local_vars.measured_values
+                ]
+            )
+            data_array = data_array[:, data_array[0, :].argsort()]
 
-    xdata = data_array[0, :]
-    ydata = data_array[1, :]
+            xdata = data_array[0, :]
+            ydata = data_array[1, :]
 
-    data_for_graph = [
-        go.Scatter(
-            x=xdata,
-            y=ydata,
-            mode='lines+markers',
-            name='IV curve',
-            line={
-                'color': '#EF553B',
-                'width': 2
+            data_for_graph = [
+                go.Scatter(
+                    x=xdata,
+                    y=ydata,
+                    mode='lines+markers',
+                    name='IV curve',
+                    line={
+                        'color': '#EF553B',
+                        'width': 2
+                    }
+                )
+            ]
+
+            return {
+                'data': data_for_graph,
+                'layout': dict(
+                    xaxis={
+                        'title': 'Applied %s (%s)' % (
+                            source_label, source_unit
+                        ),
+                        'color': text_color[theme],
+                        'gridcolor': grid_color[theme]
+                    },
+                    yaxis={
+                        'title': 'Measured %s (%s)' % (
+                            measure_label,
+                            measure_unit
+                        ),
+                        'gridcolor': grid_color[theme]
+                    },
+                    font=dict(
+                        color=text_color[theme],
+                        size=15,
+                    ),
+                    margin={'l': 100, 'b': 100, 't': 50, 'r': 20, 'pad': 0},
+                    plot_bgcolor=bkg_color[theme],
+                    paper_bgcolor=bkg_color[theme]
+                )
             }
-        )
-    ]
+        else:
+            return graph_data
+    else:
+        if swp_on:
+            # The change to the graph was triggered by a measure
 
-    return {
-        'data': data_for_graph,
-        'layout': dict(
-            xaxis={
-                'title': 'Applied %s (%s)' % (source_label, source_unit),
-                'color': text_color[theme],
-                'gridcolor': grid_color[theme]
-            },
-            yaxis={
-                'title': 'Measured %s (%s)' % (measure_label, measure_unit),
-                'gridcolor': grid_color[theme]
-            },
-            font=dict(
-                color=text_color[theme],
-                size=15,
-            ),
-            margin={'l': 100, 'b': 100, 't': 50, 'r': 20, 'pad': 0},
-            plot_bgcolor=bkg_color[theme],
-            paper_bgcolor=bkg_color[theme]
-        )
-    }
+            # Sort the data so the are ascending in x
+            data_array = np.vstack(
+                [
+                    local_vars.sourced_values,
+                    local_vars.measured_values
+                ]
+            )
+            data_array = data_array[:, data_array[0, :].argsort()]
+
+            xdata = data_array[0, :]
+            ydata = data_array[1, :]
+
+            data_for_graph = [
+                go.Scatter(
+                    x=xdata,
+                    y=ydata,
+                    mode='lines+markers',
+                    name='IV curve',
+                    line={
+                        'color': '#EF553B',
+                        'width': 2
+                    }
+                )
+            ]
+
+            return {
+                'data': data_for_graph,
+                'layout': dict(
+                    xaxis={
+                        'title': 'Applied %s (%s)' % (
+                            source_label, source_unit
+                        ),
+                        'color': text_color[theme],
+                        'gridcolor': grid_color[theme]
+                    },
+                    yaxis={
+                        'title': 'Measured %s (%s)' % (
+                            measure_label,
+                            measure_unit
+                        ),
+                        'gridcolor': grid_color[theme]
+                    },
+                    font=dict(
+                        color=text_color[theme],
+                        size=15,
+                    ),
+                    margin={'l': 100, 'b': 100, 't': 50, 'r': 20, 'pad': 0},
+                    plot_bgcolor=bkg_color[theme],
+                    paper_bgcolor=bkg_color[theme]
+                )
+            }
+        else:
+            return graph_data
 
 
 # In[]:
