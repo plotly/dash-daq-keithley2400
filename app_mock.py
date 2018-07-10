@@ -39,13 +39,14 @@ class UsefulVariables():
         print('\nchanged n_clicks in the local vars \n')
         self.n_clicks = nclicks
 
+    def reset_n_clicks(self):
+        self.n_clicks = 0
+
     def change_n_refresh(self, nrefresh):
         self.n_refresh = nrefresh
 
     def reset_interval(self):
         self.n_refresh = 0
-        self.sourced_values = []
-        self.measured_values = []
 
 
 local_vars = UsefulVariables()
@@ -67,7 +68,7 @@ def fake_iv_relation(v, c1=1, c2=1, v_0c=10, i_sc=1):
     """
     if v < v_0c and v > 0:
         # return i_sc*(1-c1*np.exp(v/(c2*v_0c)-1))
-        return -np.round(np.sqrt(v_0c)-np.sqrt(v), 4)
+        return np.round(np.sqrt(v_0c)-np.sqrt(v), 4)
     else:
         return 0
 
@@ -122,12 +123,45 @@ h_style = {
 
 # Create controls using a function
 @function_hdr
-def generate_main_layout(theme='light', data=None):
+def generate_main_layout(
+    theme='light',
+    src_type='V',
+    mode_val='single',
+    fig=None,
+):
     """generate the layout of the app"""
 
+    source_label, measure_label = get_source_labels(src_type)
+    source_unit, measure_unit = get_source_units(src_type)
+
+    if mode_val == 'single':
+        single_style = {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+        sweep_style = {'display': 'none'}
+
+        label_btn = 'Single measure'
+    else:
+        single_style = {'display': 'none'}
+        sweep_style = {
+            'display': 'flex',
+            'flex-direction': 'column',
+            'alignItems': 'center'
+        }
+
+        label_btn = 'Start sweep'
+
+    # As the trigger-measure btn will have its n_clicks reset by the reloading
+    # of the layout we need to reset this one as well
+    local_vars.reset_n_clicks()
+
     # Doesn't clear the data of the graph
-    if data is None:
+    if fig is None:
         data = []
+    else:
+        data = fig['data']
 
     html_layout = [
         html.Div(
@@ -178,7 +212,7 @@ def generate_main_layout(theme='light', data=None):
                                 {'label': 'Voltage', 'value': 'V'},
                                 {'label': 'Current', 'value': 'I'}
                             ],
-                            value='V'
+                            value=src_type
                         ),
                         html.Br(),
                         html.H4(
@@ -192,7 +226,7 @@ def generate_main_layout(theme='light', data=None):
                                 {'label': 'Single measure', 'value': 'single'},
                                 {'label': 'Sweep', 'value': 'sweep'}
                             ],
-                            value='single'
+                            value=mode_val
                         ),
                         html.Br(),
                         daq.PowerButton(
@@ -219,19 +253,18 @@ def generate_main_layout(theme='light', data=None):
                                 daq.Knob(
                                     id='source-knob',
                                     value=0.0,
-                                    label='Voltage'
+                                    label='%s (%s)' % (
+                                        source_label,
+                                        source_unit
+                                    )
                                 ),
                                 daq.LEDDisplay(
                                     id="source-knob-display",
-                                    label='Value : voltage (V)',
+                                    label='Knob readout',
                                     value="0.0000"
                                 )
                             ],
-                            style={
-                                'display': 'flex',
-                                'flex-direction': 'column',
-                                'alignItems': 'center'
-                            }
+                            style=single_style
                         ),
                         # To perfom automatic sweeps of the source
                         html.Div(
@@ -240,30 +273,31 @@ def generate_main_layout(theme='light', data=None):
                                 html.Div(
                                     id='sweep-title',
                                     children=html.H4(
-                                        "Voltage sweep:"
+                                        "%s sweep:" % source_label
                                     )
                                 ),
                                 html.Div(
                                     [
-                                        html.H2('Start'),
+                                        'Start',
                                         html.Br(),
                                         daq.PrecisionInput(
                                             id='sweep-start',
                                             precision=4,
-                                            label=' V',
+                                            label=' %s' % source_unit,
                                             labelPosition='right',
                                             value=1
                                         )
                                     ],
+                                    title='The lowest value of the sweep',
                                     style=h_style
                                 ),
                                 html.Div(
                                     [
-                                        html.H2('Stop'),
+                                        'Stop',
                                         daq.PrecisionInput(
                                             id='sweep-stop',
                                             precision=4,
-                                            label=' V',
+                                            label=' %s' % source_unit,
                                             labelPosition='right',
                                             value=9
                                         )
@@ -273,15 +307,28 @@ def generate_main_layout(theme='light', data=None):
                                 ),
                                 html.Div(
                                     [
-                                        html.H2('Step'),
+                                        'Step',
                                         daq.PrecisionInput(
                                             id='sweep-step',
                                             precision=4,
-                                            label=' V',
+                                            label=' %s' % source_unit,
                                             labelPosition='right',
                                             value=1
                                         )
                                     ],
+                                    title='The increment of the sweep',
+                                    style=h_style
+                                ),
+                                html.Div(
+                                    [
+                                        'Time of a step',
+                                        daq.NumericInput(
+                                            id='sweep-dt',
+                                            value=0.5
+                                        ),
+                                        's'
+                                    ],
+                                    title='The time spent on each increment',
                                     style=h_style
                                 ),
                                 html.Div(
@@ -292,10 +339,11 @@ def generate_main_layout(theme='light', data=None):
                                             value=False
                                         )
                                     ],
+                                    title='Indicates if the sweep is running',
                                     style=h_style
                                 )
                             ],
-                            style={'display': 'none'}
+                            style=sweep_style
                         )
                     ]
                 ),
@@ -306,13 +354,14 @@ def generate_main_layout(theme='light', data=None):
                     children=[
                         daq.StopButton(
                             id='trigger-measure',
-                            buttonText='Single measure',
+                            buttonText=label_btn,
                             size=150
                         ),
                         daq.Indicator(
                             id='measure-triggered',
                             value=False,
-                            style={'display': 'none'}
+                            label='Measure active'
+                            #style={'display': 'none'}
                         ),
                     ]
                 ),
@@ -323,12 +372,18 @@ def generate_main_layout(theme='light', data=None):
                     children=[
                         daq.LEDDisplay(
                             id="source-display",
-                            label='Applied voltage (V)',
+                            label='Applied %s (%s)' % (
+                                source_label,
+                                source_unit
+                            ),
                             value="0.0000"
                         ),
                         daq.LEDDisplay(
                             id="measure-display",
-                            label='Measured current (A)',
+                            label='Measured %s (%s)' % (
+                                measure_label,
+                                measure_unit
+                            ),
                             value="0.0000"
                         )
                     ]
@@ -461,15 +516,18 @@ app.layout = root_layout
         Input('toggleTheme', 'value')
     ],
     [
+        State('source-choice', 'value'),
+        State('mode-choice', 'value'),
         State('IV_graph', 'figure')
     ]
 )
-def page_layout(value, fig):
+def page_layout(value, src_type, mode_val, fig):
+    """update the theme of the daq components"""
 
     if value:
-        return generate_main_layout('dark', data=fig['data'])
+        return generate_main_layout('dark', src_type, mode_val, fig)
     else:
-        return generate_main_layout('light', data=fig['data'])
+        return generate_main_layout('light', src_type, mode_val, fig)
 
 
 @app.callback(
@@ -486,7 +544,6 @@ def page_style(value, style_dict):
 
     style_dict['color'] = text_color[theme]
     style_dict['background'] = bkg_color[theme]
-
     return style_dict
 
 
@@ -503,11 +560,9 @@ def page_style(value, style_dict):
         Event('mode-choice', 'change')
     ]
 )
-def source_knob_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_label, measure_label = get_source_labels(src_val)
-
+def source_knob_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_label, measure_label = get_source_labels(src_type)
     return source_label
 
 
@@ -523,12 +578,10 @@ def source_knob_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def source_knob_display_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_label, measure_label = get_source_labels(src_val)
-    source_unit, measure_unit = get_source_units(src_val)
-
+def source_knob_display_label(scr_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_label, measure_label = get_source_labels(scr_type)
+    source_unit, measure_unit = get_source_units(scr_type)
     return 'Value : %s (%s)' % (source_label, source_unit)
 
 
@@ -544,11 +597,9 @@ def source_knob_display_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def sweep_start_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_unit, measure_unit = get_source_units(src_val)
-
+def sweep_start_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_unit, measure_unit = get_source_units(src_type)
     return source_unit
 
 
@@ -564,11 +615,9 @@ def sweep_start_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def sweep_stop_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_unit, measure_unit = get_source_units(src_val)
-
+def sweep_stop_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_unit, measure_unit = get_source_units(src_type)
     return source_unit
 
 
@@ -584,11 +633,9 @@ def sweep_stop_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def sweep_step_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_unit, measure_unit = get_source_units(src_val)
-
+def sweep_step_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_unit, measure_unit = get_source_units(src_type)
     return source_unit
 
 
@@ -604,11 +651,9 @@ def sweep_step_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def sweep_title_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_label, measure_label = get_source_labels(src_val)
-
+def sweep_title_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_label, measure_label = get_source_labels(src_type)
     return html.H4("%s sweep:" % source_label)
 
 
@@ -624,12 +669,10 @@ def sweep_title_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def source_display_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_label, measure_label = get_source_labels(src_val)
-    source_unit, measure_unit = get_source_units(src_val)
-
+def source_display_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_label, measure_label = get_source_labels(src_type)
+    source_unit, measure_unit = get_source_units(src_type)
     return 'Applied %s (%s)' % (source_label, source_unit)
 
 
@@ -645,13 +688,29 @@ def source_display_label(src_val, mode_val):
         Event('mode-choice', 'change')
     ]
 )
-def measure_display_label(src_val, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
-    source_label, measure_label = get_source_labels(src_val)
-    source_unit, measure_unit = get_source_units(src_val)
-
+def measure_display_label(src_type, mode_val):
+    """update label upon modification of Radio Items"""
+    source_label, measure_label = get_source_labels(src_type)
+    source_unit, measure_unit = get_source_units(src_type)
     return 'Measured %s (%s)' % (measure_label, measure_unit)
+
+
+@app.callback(
+    Output('trigger-measure', 'buttonText'),
+    [],
+    [
+        State('mode-choice', 'value')
+    ],
+    [
+        Event('mode-choice', 'change')
+    ]
+)
+def trigger_measure_label(mode_val):
+    """update the measure button upon choosing single or sweep"""
+    if mode_val == 'single':
+        return 'Single measure'
+    else:
+        return 'Start sweep'
 
 
 # ======= Callbacks to change elements in the layout =======
@@ -666,8 +725,7 @@ def measure_display_label(src_val, mode_val):
     ]
 )
 def single_div_toggle_style(mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
+    """toggle the layout for single measure"""
     if mode_val == 'single':
         return {
             'display': 'flex',
@@ -689,8 +747,7 @@ def single_div_toggle_style(mode_val):
     ]
 )
 def sweep_div_toggle_style(mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
+    """toggle the layout for sweep"""
     if mode_val == 'single':
         return {'display': 'none'}
     else:
@@ -716,24 +773,23 @@ def knob_reset():
 
 
 # ======= Interval callbacks =======
-
 @app.callback(
     Output('refresher', 'interval'),
     [
         Input('sweep-status', 'value')
     ],
     [
-        State('mode-choice', 'value')
+        State('mode-choice', 'value'),
+        State('sweep-dt','value')
     ]
 )
-def interval_toggle(swp_on, mode_val):
-    """update the Radio Items choosing voltage or current source"""
-
+def interval_toggle(swp_on, mode_val, dt):
+    """change the interval to high frequency for sweep"""
     if mode_val == 'single':
         return 1000000
     else:
         if swp_on:
-            return 500
+            return dt * 1000
         else:
             return 1000000
 
@@ -752,11 +808,8 @@ def interval_toggle(swp_on, mode_val):
     ]
 )
 def reset_interval(swp_on, mode_val, n_interval):
-    """update the Radio Items choosing voltage or current source"""
-
+    """reset the n_interval of the dcc.Interval once a sweep is done"""
     if mode_val == 'single':
-        print('Interval reset')
-        print(n_interval)
         local_vars.reset_interval()
         return 0
     else:
@@ -797,11 +850,12 @@ def sweep_activation_toggle(
     otherwise it stops the sweep once the sourced value gets higher or equal
     than the sweep limit minus the sweep step
     """
-
     if mode_val == 'single':
         return False
     else:
         if swp_on:
+            # The condition of continuation is to source lower than the sweep
+            # limit minus one sweep step
             answer = float(sourced_val) <= float(swp_stop)-float(swp_step)
             return answer
         else:
@@ -853,7 +907,6 @@ def update_trigger_measure(
         local_vars.change_n_clicks(int(nclick))
         return True
     else:
-
         return False
 
 
