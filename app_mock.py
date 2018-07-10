@@ -31,22 +31,45 @@ line_colors = ['#19d3f3', '#e763fa', '#00cc96', '#EF553B']
 class UsefulVariables():
     def __init__(self):
         self.n_clicks = 0
+        self.n_clicks_clear_graph = 0
         self.n_refresh = 0
+        self.source = 'V'
+        self.is_source_being_changed = False
+        self.mode = 'single'
         self.sourced_values = []
         self.measured_values = []
 
     def change_n_clicks(self, nclicks):
-        print('\nchanged n_clicks in the local vars \n')
         self.n_clicks = nclicks
+
+    def change_n_clicks_clear_graph(self, nclicks):
+        self.n_clicks_clear_graph = nclicks
 
     def reset_n_clicks(self):
         self.n_clicks = 0
+        self.n_clicks_clear_graph = 0
 
     def change_n_refresh(self, nrefresh):
         self.n_refresh = nrefresh
 
     def reset_interval(self):
         self.n_refresh = 0
+
+    def clear_graph(self):
+        self.sourced_values = []
+        self.measured_values = []
+
+    def sorted_values(self):
+        """ Sort the data so the are ascending according to the source """
+        data_array = np.vstack(
+            [
+                local_vars.sourced_values,
+                local_vars.measured_values
+            ]
+        )
+        data_array = data_array[:, data_array[0, :].argsort()]
+
+        return data_array
 
 
 local_vars = UsefulVariables()
@@ -72,9 +95,6 @@ def fake_iv_relation(v, c1=1, c2=1, v_0c=10, i_sc=1):
     else:
         return 0
 
-
-# to pick the first theme between dark and light
-MY_THEME = 'light'
 
 # font and background colors associated with each themes
 bkg_color = {'dark': '#2a3f5f', 'light': '#F3F6FA'}
@@ -229,7 +249,29 @@ def generate_main_layout(
                             value=mode_val
                         ),
                         html.Br(),
+                        daq.StopButton(
+                            id='clear-graph_btn',
+                            buttonText='Clear graph',
+                            size=150
+                        ),
+                        html.Br(),
+                        daq.Indicator(
+                            id='clear-graph_ind',
+                            value=False,
+                            style={'display': 'none'}
+                        )
+                    ]
+                ),
+                html.Div(
+                    className="two columns",
+                    id='source-options',
+                    children=[
+                        dcc.Input(
+                            id='source-com-port',
+                            value='Enter a port number'
+                        ),
                         daq.PowerButton(
+                            id='source-power',
                             on=True
                         )
                     ]
@@ -313,7 +355,8 @@ def generate_main_layout(
                                             precision=4,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=1
+                                            value=1,
+                                            min=0.2
                                         )
                                     ],
                                     title='The increment of the sweep',
@@ -353,7 +396,7 @@ def generate_main_layout(
                     className="two columns",
                     children=[
                         daq.StopButton(
-                            id='trigger-measure',
+                            id='trigger-measure_btn',
                             buttonText=label_btn,
                             size=150
                         ),
@@ -396,25 +439,6 @@ def generate_main_layout(
                 'alignItems': 'center',
                 'justifyContent': 'space-between'
             }
-        ),
-        html.Div(
-            className='row',
-            children=[
-                html.Div(
-                    id='',
-                    className="five columns",
-                    children=[
-                        html.H5('Here the voltage')
-                    ]
-                ),
-                html.Div(
-                    id='graph_controls',
-                    className="five columns",
-                    children=[
-                        html.H5('Here the current')
-                    ]
-                )
-            ]
         ),
         html.Div(
             className='row',
@@ -492,7 +516,7 @@ root_layout = html.Div(
         ),
         html.Div(
             id='page-content',
-            children=generate_main_layout(theme=MY_THEME),
+            children=generate_main_layout(),
             # className='ten columns',
             style={
                 'width': '100%'
@@ -696,7 +720,7 @@ def measure_display_label(src_type, mode_val):
 
 
 @app.callback(
-    Output('trigger-measure', 'buttonText'),
+    Output('trigger-measure_btn', 'buttonText'),
     [],
     [
         State('mode-choice', 'value')
@@ -762,14 +786,27 @@ def sweep_div_toggle_style(mode_val):
 @app.callback(
     Output('source-knob', 'value'),
     [],
-    [],
+    [
+        State('source-knob', 'value'),
+        State('source-choice', 'value')
+    ],
     [
         Event('source-choice', 'change')
     ]
 )
-def knob_reset():
-    """reset the display to 0 when the source is toggled"""
-    return '0'
+def source_change(src_val, src_type):
+    """modification upon source-change
+    change the source type in local_vars
+    reset the knob to zero
+    TODO: reset the measured values on the graph
+    """
+    if src_type == local_vars.source:
+        local_vars.is_source_being_changed = False
+        return src_val
+    else:
+        local_vars.is_source_being_changed = True
+        local_vars.source = src_type
+        return '0'
 
 
 # ======= Interval callbacks =======
@@ -780,11 +817,14 @@ def knob_reset():
     ],
     [
         State('mode-choice', 'value'),
-        State('sweep-dt','value')
+        State('sweep-dt', 'value')
     ]
 )
 def interval_toggle(swp_on, mode_val, dt):
     """change the interval to high frequency for sweep"""
+    if dt <= 0:
+        # Precaution against the user
+        dt = 0.5
     if mode_val == 'single':
         return 1000000
     else:
@@ -804,7 +844,7 @@ def interval_toggle(swp_on, mode_val, dt):
     ],
     [
         Event('mode-choice', 'change'),
-        Event('trigger-measure', 'click')
+        Event('trigger-measure_btn', 'click')
     ]
 )
 def reset_interval(swp_on, mode_val, n_interval):
@@ -833,7 +873,7 @@ def reset_interval(swp_on, mode_val, n_interval):
         State('mode-choice', 'value')
     ],
     [
-        Event('trigger-measure', 'click')
+        Event('trigger-measure_btn', 'click')
     ]
 )
 def sweep_activation_toggle(
@@ -860,7 +900,7 @@ def sweep_activation_toggle(
             return answer
         else:
             if not meas_triggered:
-                # The 'trigger-measure' wasn't pressed yet
+                # The 'trigger-measure_btn' wasn't pressed yet
                 return False
             else:
                 # Initiate a sweep
@@ -882,32 +922,42 @@ def set_source_knob_display(knob_val):
 @app.callback(
     Output('measure-triggered', 'value'),
     [
-        Input('trigger-measure', 'n_clicks'),
+        Input('trigger-measure_btn', 'n_clicks'),
+        Input('source-choice', 'value'),
+        Input('mode-choice', 'value')
     ],
     [
-        State('mode-choice', 'value'),
         State('sweep-status', 'value')
-    ],
+    ]
 )
 def update_trigger_measure(
     nclick,
+    src_type,
     mode_val,
     swp_on
 ):
     """ Controls if a measure can be made or not
     The indicator 'measure-triggered' can be set to True only by a click
-    on the 'trigger-measure' button or by the 'refresher' interval
+    on the 'trigger-measure_btn' button or by the 'refresher' interval
     """
 
     if nclick is None:
         nclick = 0
 
     if int(nclick) != local_vars.n_clicks:
-        # It was triggered by a click on the trigger-measure button
+        # It was triggered by a click on the trigger-measure_btn button
         local_vars.change_n_clicks(int(nclick))
         return True
     else:
-        return False
+        if swp_on:
+            return True
+        else:
+            return False
+
+        # if local_vars.is_source_being_changed:
+        #     return False
+        #
+        # return False
 
 
 @app.callback(
@@ -1013,11 +1063,47 @@ def update_measure_display(
             return meas_old_val
 
 
+# ======= Graph related callbacks =======
+@app.callback(
+    Output('clear-graph_ind', 'value'),
+    [
+        Input('source-knob', 'value'),
+        Input('clear-graph_btn', 'n_clicks'),
+        Input('measure-triggered', 'value')
+    ],
+    [],
+    []
+)
+def clear_graph_click(src_val, nclick, meas_ttiggered):
+    """clear the data on the graph
+    Uses the callback of the knob value triggered by source-choice change
+    or the click on the clear-graph_btn
+    everytime a measure is initiated, this value is reset to False
+    """
+    if nclick is None:
+        nclick = 0
+
+    if local_vars.is_source_being_changed:
+        local_vars.is_source_being_changed = False
+        local_vars.clear_graph()
+        return True
+    else:
+        if int(nclick) != local_vars.n_clicks_clear_graph:
+            # It was triggered by a click on the clear-graph_btn button
+            local_vars.change_n_clicks_clear_graph(int(nclick))
+            # Reset the data
+            local_vars.clear_graph()
+            return True
+        else:
+            return False
+
+
 @app.callback(
     Output('IV_graph', 'figure'),
     [
         Input('toggleTheme', 'value'),
-        Input('measure-display', 'value')
+        Input('measure-display', 'value'),
+        Input('clear-graph_ind', 'value')
     ],
     [
         State('measure-triggered', 'value'),
@@ -1031,6 +1117,7 @@ def update_measure_display(
 def update_graph(
         theme,
         measured_val,
+        clear_graph,  # Had to do this because of the lack of multiple Outputs
         meas_triggered,
         sourced_val,
         graph_data,
@@ -1044,11 +1131,6 @@ def update_graph(
     else:
         theme = 'light'
 
-    print("graph triggered")
-    print(sourced_val)
-    print(measured_val)
-    print(meas_triggered)
-    print(swp_on)
     # Labels for sourced and measured quantities
     source_label, measure_label = get_source_labels(src_type)
     source_unit, measure_unit = get_source_units(src_type)
@@ -1109,19 +1191,14 @@ def update_graph(
                 )
             }
         else:
+            if clear_graph:
+                graph_data['data'] = local_vars.sorted_values()
             return graph_data
     else:
         if swp_on:
             # The change to the graph was triggered by a measure
 
-            # Sort the data so the are ascending in x
-            data_array = np.vstack(
-                [
-                    local_vars.sourced_values,
-                    local_vars.measured_values
-                ]
-            )
-            data_array = data_array[:, data_array[0, :].argsort()]
+            data_array = local_vars.sorted_values()
 
             xdata = data_array[0, :]
             ydata = data_array[1, :]
@@ -1166,6 +1243,8 @@ def update_graph(
                 )
             }
         else:
+            if clear_graph:
+                graph_data['data'] = local_vars.sorted_values()
             return graph_data
 
 
