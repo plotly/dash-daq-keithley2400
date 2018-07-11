@@ -150,7 +150,7 @@ class KT2400(Instrument):
                 print("The source type should be either 'I' or 'V'")
                 answer = np.nan
         else:
-            answer = np.squeeze(fake_iv_relation(src_type, src_val))
+            answer = np.round(np.squeeze(fake_iv_relation(src_type, src_val)), 4)
 
         return answer
 

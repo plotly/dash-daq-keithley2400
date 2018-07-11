@@ -1011,7 +1011,7 @@ def update_measure_display(
             # Save the measured value
             local_vars.measured_values.append(measured_value)
 
-    return np.round(measured_value, 4)
+    return measured_value
 
 
 # ======= Graph related callbacks =======
