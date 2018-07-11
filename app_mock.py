@@ -10,25 +10,25 @@ from dash.dependencies import Input, Output, State, Event
 
 import dash_daq as daq
 
+from dash_daq_drivers import keithley_instruments
+
+# Instance of a Keithley2400
+iv_generator = keithley_instruments.KT2400('COM3', mock_mode=True)
+
+# Define the app
 app = dash.Dash('')
-
 server = app.server
-
-external_css = ["https://codepen.io/bachibouzouk/pen/ZRjdZN.css"]
-
-for css in external_css:
-
-    app.css.append_css({"external_url": css})
-
 app.config.suppress_callback_exceptions = False
-
 app.scripts.config.serve_locally = True
 
-# line colors
-line_colors = ['#19d3f3', '#e763fa', '#00cc96', '#EF553B']
+# Load css file
+external_css = ["https://codepen.io/bachibouzouk/pen/ZRjdZN.css"]
+for css in external_css:
+    app.css.append_css({"external_url": css})
 
 
-class UsefulVariables():
+class UsefulVariables:
+    """Class to store information useful to callbacks"""
     def __init__(self):
         self.n_clicks = 0
         self.n_clicks_clear_graph = 0
@@ -74,28 +74,6 @@ class UsefulVariables():
 
 local_vars = UsefulVariables()
 
-
-def function_hdr(func):
-    def new_function(*args, **kwargs):
-        print("\n### %s ###\n" % (func.__name__))
-        return_value = func(*args, **kwargs)
-        print("\n### %s ###\n" % ('-' * len(func.__name__)))
-        return return_value
-
-    return new_function
-
-
-def fake_iv_relation(v, c1=1, c2=1, v_0c=10, i_sc=1):
-    """mimic an IV curve
-    source: https://www.sciencedirect.com/science/article/pii/S1658365512600120
-    """
-    if v < v_0c and v > 0:
-        # return i_sc*(1-c1*np.exp(v/(c2*v_0c)-1))
-        return np.round(np.sqrt(v_0c)-np.sqrt(v), 4)
-    else:
-        return 0
-
-
 # font and background colors associated with each themes
 bkg_color = {'dark': '#2a3f5f', 'light': '#F3F6FA'}
 grid_color = {'dark': 'white', 'light': '#C8D4E3'}
@@ -104,12 +82,11 @@ text_color = {'dark': 'white', 'light': '#506784'}
 
 def get_source_labels(source='V'):
     """labels for source/measure elements"""
-
     if source == 'V':
         # we source voltage and measure current
         source_label = 'Voltage'
         measure_label = 'Current'
-    else:
+    elif source == 'I':
         # we source current and measure voltage
         source_label = 'Current'
         measure_label = 'Voltage'
@@ -118,13 +95,12 @@ def get_source_labels(source='V'):
 
 
 def get_source_units(source='V'):
-    """unitss for source/measure elements"""
-
+    """units for source/measure elements"""
     if source == 'V':
         # we source voltage and measure current
         source_unit = 'V'
         measure_unit = 'A'
-    else:
+    elif source == 'I':
         # we source current and measure voltage
         source_unit = 'A'
         measure_unit = 'V'
@@ -142,7 +118,6 @@ h_style = {
 
 
 # Create controls using a function
-@function_hdr
 def generate_main_layout(
     theme='light',
     src_type='V',
@@ -295,6 +270,8 @@ def generate_main_layout(
                                 daq.Knob(
                                     id='source-knob',
                                     value=0.0,
+                                    min=0,
+                                    max=25,
                                     label='%s (%s)' % (
                                         source_label,
                                         source_unit
@@ -404,7 +381,6 @@ def generate_main_layout(
                             id='measure-triggered',
                             value=False,
                             label='Measure active'
-                            #style={'display': 'none'}
                         ),
                     ]
                 ),
@@ -577,14 +553,13 @@ def page_style(value, style_dict):
     [],
     [
         State('source-choice', 'value'),
-        State('mode-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def source_knob_label(src_type, mode_val):
+def source_knob_label(src_type):
     """update label upon modification of Radio Items"""
     source_label, measure_label = get_source_labels(src_type)
     return source_label
@@ -594,15 +569,14 @@ def source_knob_label(src_type, mode_val):
     Output('source-knob-display', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def source_knob_display_label(scr_type, mode_val):
+def source_knob_display_label(scr_type):
     """update label upon modification of Radio Items"""
     source_label, measure_label = get_source_labels(scr_type)
     source_unit, measure_unit = get_source_units(scr_type)
@@ -613,15 +587,14 @@ def source_knob_display_label(scr_type, mode_val):
     Output('sweep-start', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def sweep_start_label(src_type, mode_val):
+def sweep_start_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
     return source_unit
@@ -631,15 +604,14 @@ def sweep_start_label(src_type, mode_val):
     Output('sweep-stop', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def sweep_stop_label(src_type, mode_val):
+def sweep_stop_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
     return source_unit
@@ -649,15 +621,14 @@ def sweep_stop_label(src_type, mode_val):
     Output('sweep-step', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def sweep_step_label(src_type, mode_val):
+def sweep_step_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
     return source_unit
@@ -667,15 +638,14 @@ def sweep_step_label(src_type, mode_val):
     Output('sweep-title', 'children'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def sweep_title_label(src_type, mode_val):
+def sweep_title_label(src_type):
     """update label upon modification of Radio Items"""
     source_label, measure_label = get_source_labels(src_type)
     return html.H4("%s sweep:" % source_label)
@@ -685,15 +655,14 @@ def sweep_title_label(src_type, mode_val):
     Output('source-display', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def source_display_label(src_type, mode_val):
+def source_display_label(src_type):
     """update label upon modification of Radio Items"""
     source_label, measure_label = get_source_labels(src_type)
     source_unit, measure_unit = get_source_units(src_type)
@@ -704,15 +673,14 @@ def source_display_label(src_type, mode_val):
     Output('measure-display', 'label'),
     [],
     [
-        State('source-choice', 'value'),
-        State('mode-choice', 'value')
+        State('source-choice', 'value')
     ],
     [
         Event('source-choice', 'change'),
         Event('mode-choice', 'change')
     ]
 )
-def measure_display_label(src_type, mode_val):
+def measure_display_label(src_type):
     """update label upon modification of Radio Items"""
     source_label, measure_label = get_source_labels(src_type)
     source_unit, measure_unit = get_source_units(src_type)
@@ -798,7 +766,7 @@ def source_change(src_val, src_type):
     """modification upon source-change
     change the source type in local_vars
     reset the knob to zero
-    TODO: reset the measured values on the graph
+    reset the measured values on the graph
     """
     if src_type == local_vars.source:
         local_vars.is_source_being_changed = False
@@ -923,8 +891,6 @@ def set_source_knob_display(knob_val):
     Output('measure-triggered', 'value'),
     [
         Input('trigger-measure_btn', 'n_clicks'),
-        Input('source-choice', 'value'),
-        Input('mode-choice', 'value')
     ],
     [
         State('sweep-status', 'value')
@@ -932,8 +898,6 @@ def set_source_knob_display(knob_val):
 )
 def update_trigger_measure(
     nclick,
-    src_type,
-    mode_val,
     swp_on
 ):
     """ Controls if a measure can be made or not
@@ -954,11 +918,6 @@ def update_trigger_measure(
         else:
             return False
 
-        # if local_vars.is_source_being_changed:
-        #     return False
-        #
-        # return False
-
 
 @app.callback(
     Output('source-display', 'value'),
@@ -972,7 +931,6 @@ def update_trigger_measure(
         State('sweep-start', 'value'),
         State('sweep-stop', 'value'),
         State('sweep-step', 'value'),
-        State('source-choice', 'value'),
         State('mode-choice', 'value'),
         State('sweep-status', 'value')
     ]
@@ -985,12 +943,10 @@ def set_source_display(
     swp_start,
     swp_stop,
     swp_step,
-    src_type,
     mode_val,
     swp_on
 ):
     """"set the source value to the instrument"""
-
     if mode_val == 'single':
         return knob_val
     else:
@@ -1029,38 +985,33 @@ def update_measure_display(
     mode_val,
     swp_on
 ):
-    """"read the measured value from the instrument"""
-    # check that the applied value correspond to source-knob
-    # initiate a measure of the KT2400
-    # read the measure value and return it
+    """"read the measured value from the instrument
+    check if a measure should be made
+    initiate a measure of the KT2400
+    read the measure value and return it
+    by default it simply return the value previously available
+    """
+    source_value = float(src_val)
+    measured_value = meas_old_val
+
     if mode_val == 'single':
         if meas_triggered:
-            source_value = float(src_val)
-
+            # Save the sourced value
             local_vars.sourced_values.append(source_value)
-
-            measured_value = fake_iv_relation(source_value)
+            # Initiate a measurement
+            measured_value = iv_generator.source_and_measure(src_type, src_val)
+            # Save the measured value
+            local_vars.measured_values.append(measured_value)
+    else:
+        if meas_triggered and swp_on:
+            # Save the sourced value
+            local_vars.sourced_values.append(source_value)
+            # Initiate a measurement
+            measured_value = iv_generator.source_and_measure(src_type, src_val)
+            # Save the measured value
             local_vars.measured_values.append(measured_value)
 
-            return measured_value
-        else:
-            return meas_old_val
-
-    else:
-        if meas_triggered:
-
-            if swp_on:
-                source_value = float(src_val)
-                local_vars.sourced_values.append(source_value)
-
-                measured_value = fake_iv_relation(source_value)
-                local_vars.measured_values.append(measured_value)
-
-                return measured_value
-            else:
-                return meas_old_val
-        else:
-            return meas_old_val
+    return np.round(measured_value, 4)
 
 
 # ======= Graph related callbacks =======
@@ -1074,16 +1025,18 @@ def update_measure_display(
     [],
     []
 )
-def clear_graph_click(src_val, nclick, meas_ttiggered):
+def clear_graph_click(src_val, nclick, meas_triggered):
     """clear the data on the graph
     Uses the callback of the knob value triggered by source-choice change
     or the click on the clear-graph_btn
-    everytime a measure is initiated, this value is reset to False
+    everytime a measure is initiated, this value is reset to False, this
+    is why we need the input of measure_triggered
     """
     if nclick is None:
         nclick = 0
 
     if local_vars.is_source_being_changed:
+        # The callback was triggered by a source change
         local_vars.is_source_being_changed = False
         local_vars.clear_graph()
         return True
@@ -1101,13 +1054,12 @@ def clear_graph_click(src_val, nclick, meas_ttiggered):
 @app.callback(
     Output('IV_graph', 'figure'),
     [
-        Input('toggleTheme', 'value'),
         Input('measure-display', 'value'),
         Input('clear-graph_ind', 'value')
     ],
     [
+        State('toggleTheme', 'value'),
         State('measure-triggered', 'value'),
-        State('source-display', 'value'),
         State('IV_graph', 'figure'),
         State('source-choice', 'value'),
         State('mode-choice', 'value'),
@@ -1115,11 +1067,10 @@ def clear_graph_click(src_val, nclick, meas_ttiggered):
     ]
 )
 def update_graph(
-        theme,
         measured_val,
         clear_graph,  # Had to do this because of the lack of multiple Outputs
+        theme,
         meas_triggered,
-        sourced_val,
         graph_data,
         src_type,
         mode_val,
@@ -1139,14 +1090,8 @@ def update_graph(
         if meas_triggered:
             # The change to the graph was triggered by a measure
 
-            # Sort the data so the are ascending in x
-            data_array = np.vstack(
-                [
-                    local_vars.sourced_values,
-                    local_vars.measured_values
-                ]
-            )
-            data_array = data_array[:, data_array[0, :].argsort()]
+            # Sort the stored data so the are ascending in x
+            data_array = local_vars.sorted_values()
 
             xdata = data_array[0, :]
             ydata = data_array[1, :]
@@ -1198,6 +1143,7 @@ def update_graph(
         if swp_on:
             # The change to the graph was triggered by a measure
 
+            # Sort the stored data so the are ascending in x
             data_array = local_vars.sorted_values()
 
             xdata = data_array[0, :]
