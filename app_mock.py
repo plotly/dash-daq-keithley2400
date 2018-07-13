@@ -196,7 +196,7 @@ def generate_main_layout(
                     id='IV-options',
                     children=[
                         html.H4(
-                            'Sourcing :',
+                            'Sourcing',
                             title='Choose whether you want to source voltage '
                                   'and measure current or source current and '
                                   'measure voltage'
@@ -211,7 +211,7 @@ def generate_main_layout(
                         ),
                         html.Br(),
                         html.H4(
-                            'Measure mode :',
+                            'Measure mode',
                             title='Choose if you want to do single measurement'
                                   ' or to start a sweep'
                         ),
@@ -224,30 +224,24 @@ def generate_main_layout(
                             value=mode_val
                         ),
                         html.Br(),
-                        daq.StopButton(
-                            id='clear-graph_btn',
-                            buttonText='Clear graph',
-                            size=150
+                        html.Div(
+                            daq.StopButton(
+                                id='clear-graph_btn',
+                                buttonText='Clear graph',
+                                size=150
+                            ),
+                            style={
+                                'alignItems': 'center',
+                                'display': 'flex',
+                                'flex-direction': 'row',
+                                'border': '1px solid red'
+                            }
                         ),
                         html.Br(),
                         daq.Indicator(
                             id='clear-graph_ind',
                             value=False,
                             style={'display': 'none'}
-                        )
-                    ]
-                ),
-                html.Div(
-                    className="two columns",
-                    id='source-options',
-                    children=[
-                        dcc.Input(
-                            id='source-com-port',
-                            value='Enter a port number'
-                        ),
-                        daq.PowerButton(
-                            id='source-power',
-                            on=True
                         )
                     ]
                 )
@@ -269,7 +263,7 @@ def generate_main_layout(
                             children=[
                                 daq.Knob(
                                     id='source-knob',
-                                    value=0.0,
+                                    value=0.00,
                                     min=0,
                                     max=25,
                                     label='%s (%s)' % (
@@ -280,7 +274,7 @@ def generate_main_layout(
                                 daq.LEDDisplay(
                                     id="source-knob-display",
                                     label='Knob readout',
-                                    value="0.0000"
+                                    value=0.00
                                 )
                             ],
                             style=single_style
@@ -304,8 +298,10 @@ def generate_main_layout(
                                             precision=4,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=1
-                                        )
+                                            value=1,
+                                            style={'margin': '5px'}
+                                        ),
+
                                     ],
                                     title='The lowest value of the sweep',
                                     style=h_style
@@ -318,7 +314,8 @@ def generate_main_layout(
                                             precision=4,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=9
+                                            value=9,
+                                            style={'margin': '5px'}
                                         )
                                     ],
                                     title='The highest value of the sweep',
@@ -333,7 +330,8 @@ def generate_main_layout(
                                             label=' %s' % source_unit,
                                             labelPosition='right',
                                             value=1,
-                                            min=0.2
+                                            min=0.2,
+                                            style={'margin': '5px'}
                                         )
                                     ],
                                     title='The increment of the sweep',
@@ -344,7 +342,8 @@ def generate_main_layout(
                                         'Time of a step',
                                         daq.NumericInput(
                                             id='sweep-dt',
-                                            value=0.5
+                                            value=0.5,
+                                            style={'margin': '5px'}
                                         ),
                                         's'
                                     ],
@@ -417,28 +416,46 @@ def generate_main_layout(
             }
         ),
         html.Div(
-            className='row',
             children=[
                 html.Div(
-                    className='ten columns',
                     children=dcc.Markdown('''
 **What is this app about?**
 
 This is an app to show the graphic elements of Dash DAQ used to create an
-interface for the voltage/current source/measure from Keithley 2400. This mock
-demo does not actually connect to a physical instrument the values diplayed are
-generated randomly for demonstration purposes.
+interface for an IV curve tracer using a Keithley 2400 SourceMeter. This mock
+demo does not actually connect to a physical instrument the values displayed
+are generated from an IV curve model for demonstration purposes.
 
 **How to use the app**
 
-DESCRIBE HOW TO USE THE APP HERE You can purchase the Dash DAQ components at [
+First choose if you want to source (apply) current or voltage, using the radio
+item located on the right of the graph area. Then choose if you want to operate
+in a single measurement mode or in a sweep mode.
+
+***Single measurement mode***
+
+Adjust the value of the source with the knob at the bottom of the graph area
+and click on the `SINGLE MEASURE` button, the measured value will be displayed.
+Repetition of this procedure for different source values will reveal the full
+IV curve.
+
+***Sweep mode***
+
+Set the sweep parameters `start`, `stop` and `step` as well as the time
+spent on each step, then click on the button `START SWEEP`, the result of the
+sweep will be displayed on the graph.
+
+The data is never erased unless the button `CLEAR GRAPH is pressed` or if the
+source type is changed.
+
+You can purchase the Dash DAQ components at [
 dashdaq.io](https://www.dashdaq.io/)
                     '''),
                     style={
-                        # 'max-width': '600px',
+                        'max-width': '600px',
                         'margin': '15px auto 300 px auto',
                         'padding': '40px',
-                        'alignItems': 'center',
+                        'alignItems': 'left',
                         'box-shadow': '10px 10px 5px rgba(0, 0, 0, 0.2)',
                         'border': '1px solid #DFE8F3',
                         'color': text_color[theme],
@@ -597,7 +614,7 @@ def source_knob_display_label(scr_type):
 def sweep_start_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
-    return source_unit
+    return '(%s)' % source_unit
 
 
 @app.callback(
@@ -614,7 +631,7 @@ def sweep_start_label(src_type):
 def sweep_stop_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
-    return source_unit
+    return '(%s)' % source_unit
 
 
 @app.callback(
@@ -631,7 +648,7 @@ def sweep_stop_label(src_type):
 def sweep_step_label(src_type):
     """update label upon modification of Radio Items"""
     source_unit, measure_unit = get_source_units(src_type)
-    return source_unit
+    return '(%s)' % source_unit
 
 
 @app.callback(
@@ -774,7 +791,7 @@ def source_change(src_val, src_type):
     else:
         local_vars.is_source_being_changed = True
         local_vars.source = src_type
-        return '0'
+        return 0.00
 
 
 # ======= Interval callbacks =======
@@ -891,14 +908,12 @@ def set_source_knob_display(knob_val):
     Output('measure-triggered', 'value'),
     [
         Input('trigger-measure_btn', 'n_clicks'),
-    ],
-    [
-        State('sweep-status', 'value')
+        Input('mode-choice', 'value')
     ]
 )
 def update_trigger_measure(
     nclick,
-    swp_on
+    mode_val
 ):
     """ Controls if a measure can be made or not
     The indicator 'measure-triggered' can be set to True only by a click
@@ -913,10 +928,8 @@ def update_trigger_measure(
         local_vars.change_n_clicks(int(nclick))
         return True
     else:
-        if swp_on:
-            return True
-        else:
-            return False
+        # It was triggered by a change of the mode
+        return False
 
 
 @app.callback(
