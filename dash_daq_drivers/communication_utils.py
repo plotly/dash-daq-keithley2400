@@ -11,24 +11,16 @@ import glob
 import sys
 
 try:
-
     import serial
-
     serial_available = True
-
 except ImportError:
-
     serial_available = False
     print("pyserial package not installed, run 'pip install pyserial'")
 
 try:
-
     import visa
-
     visa_available = True
-
 except ImportError:
-
     visa_available = False
     print("pyvisa package not installed, run 'pip install pyvisa'")
 
