@@ -12,19 +12,18 @@ import dash_daq as daq
 
 from dash_daq_drivers import keithley_instruments
 
-# Instance of a Keithley2400
-iv_generator = keithley_instruments.KT2400('COM3', mock_mode=True)
-
-# Define the app
-app = dash.Dash('')
-server = app.server
-app.config.suppress_callback_exceptions = False
-app.scripts.config.serve_locally = True
-
-# Load css file
-external_css = ["https://codepen.io/bachibouzouk/pen/ZRjdZN.css"]
-for css in external_css:
-    app.css.append_css({"external_url": css})
+# Instance of a Keithley2400 connected with Prologix GPIB to USB controller
+FIRST_TIME = True
+if FIRST_TIME:
+    iv_generator = keithley_instruments.KT2400(
+        'GPIB0::11',
+        mock_mode=False,
+        prologix='COM3',
+        auto=0
+    )
+    print(FIRST_TIME)
+    FIRST_TIME = False
+    print(FIRST_TIME)
 
 
 class UsefulVariables:
@@ -79,6 +78,17 @@ bkg_color = {'dark': '#2a3f5f', 'light': '#F3F6FA'}
 grid_color = {'dark': 'white', 'light': '#C8D4E3'}
 text_color = {'dark': 'white', 'light': '#506784'}
 
+# Define the app
+app = dash.Dash(__name__)
+server = app.server
+app.config.suppress_callback_exceptions = False
+app.scripts.config.serve_locally = True
+
+# Load css file
+external_css = ["https://codepen.io/bachibouzouk/pen/ZRjdZN.css"]
+for css in external_css:
+    app.css.append_css({"external_url": css})
+
 
 def get_source_labels(source='V'):
     """labels for source/measure elements"""
@@ -108,6 +118,16 @@ def get_source_units(source='V'):
     return source_unit, measure_unit
 
 
+def get_source_max(source='V'):
+    """units for source/measure elements"""
+    if source == 'V':
+        # we source voltage and measure current
+        return 20
+    elif source == 'I':
+        # we source current and measure voltage
+        return 1e-6
+
+
 h_style = {
     'display': 'flex',
     'flex-direction': 'row',
@@ -128,6 +148,7 @@ def generate_main_layout(
 
     source_label, measure_label = get_source_labels(src_type)
     source_unit, measure_unit = get_source_units(src_type)
+    source_max = get_source_max(src_type)
 
     if mode_val == 'single':
         single_style = {
@@ -264,7 +285,7 @@ def generate_main_layout(
                                     id='source-knob',
                                     value=0.00,
                                     min=0,
-                                    max=10,
+                                    max=source_max,
                                     label='%s (%s)' % (
                                         source_label,
                                         source_unit
@@ -295,9 +316,11 @@ def generate_main_layout(
                                         daq.PrecisionInput(
                                             id='sweep-start',
                                             precision=4,
+                                            min=0,
+                                            max=source_max,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=0,
+                                            value=1,
                                             style={'margin': '5px'}
                                         ),
 
@@ -311,9 +334,11 @@ def generate_main_layout(
                                         daq.PrecisionInput(
                                             id='sweep-stop',
                                             precision=4,
+                                            min=0,
+                                            max=source_max,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=10,
+                                            value=9,
                                             style={'margin': '5px'}
                                         )
                                     ],
@@ -326,9 +351,11 @@ def generate_main_layout(
                                         daq.PrecisionInput(
                                             id='sweep-step',
                                             precision=4,
+                                            min=0,
+                                            max=source_max,
                                             label=' %s' % source_unit,
                                             labelPosition='right',
-                                            value=0.2,
+                                            value=1,
                                             style={'margin': '5px'}
                                         )
                                     ],
@@ -340,8 +367,8 @@ def generate_main_layout(
                                         'Time of a step',
                                         daq.NumericInput(
                                             id='sweep-dt',
-                                            value=0.2,
-                                            min=0.01,
+                                            value=0.5,
+                                            min=0.1,
                                             style={'margin': '5px'}
                                         ),
                                         's'
@@ -959,21 +986,22 @@ def set_source_display(
     swp_on
 ):
     """"set the source value to the instrument"""
-
-    # Default answer
-    answer = old_source_display_val
-
     if mode_val == 'single':
-        answer = knob_val
+        return knob_val
     else:
         if meas_triggered:
             if swp_on:
                 answer = float(swp_start) \
                          + (int(n_interval) - 1) * float(swp_step)
                 if answer > float(swp_stop):
-                    answer = old_source_display_val
+                    return old_source_display_val
+                else:
+                    return answer
+            else:
+                return old_source_display_val
+        else:
+            return old_source_display_val
 
-    return np.round(answer, 4)
 
 @app.callback(
     Output('measure-display', 'value'),
@@ -1208,4 +1236,4 @@ def update_graph(
 # In[]:
 # Main
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
