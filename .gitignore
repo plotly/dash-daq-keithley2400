@@ -1,3 +1,4 @@
 goal.png
 .idea/*
 dash_daq_drivers/__pycache__/
+*.pyc
