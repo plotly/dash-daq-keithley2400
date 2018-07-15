@@ -239,7 +239,6 @@ with the instrument %s" % self.instr_id_name))
 
                 self.instr_connexion.write(
                     ("++addr %s" % self.instr_port_name))
-                self.instr_connexion.readline()
                 # the \n termchar is embedded in the PrologixController class
                 self.term_chars = ""
 

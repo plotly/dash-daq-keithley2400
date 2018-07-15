@@ -24,7 +24,7 @@ def fake_iv_relation(
     src_type should be either 'I' or 'V'
     """
     # Make sure the format is a numpy array
-    src_val = np.append(np.array([]), src_val)
+    src_val = np.append(np.array([]), src_val) * 2.1
     # Prepare an answer based on the size of the input
     answer = np.zeros(np.size(src_val))
 
@@ -110,7 +110,8 @@ class KT2400(Instrument):
 
     def _clear_register(self):
         """refer to p 15-4 of the KT2400 manual"""
-        self.write(':STAT:PRES')
+        if not self.mock_mode:
+            self.write(':STAT:PRES')
 
     def measure(self, instr_param):
         if instr_param in self.measure_params:
@@ -189,14 +190,20 @@ class KT2400(Instrument):
 
     def get_voltage_compliance(self):
         """voltage compliance in Volt"""
-        return float(self.ask(':SENS:VOLT:PROT:LEV?'))
+        if not self.mock_mode:
+            return float(self.ask(':SENS:VOLT:PROT:LEV?'))
+        else:
+            return 20
 
     def measure_current(self):
         return self.measure('I')
 
     def get_current_compliance(self):
         """current compliance in Ampere"""
-        return float(self.ask(':SENS:CURR:PROT:LEV?'))
+        if not self.mock_mode:
+            return float(self.ask(':SENS:CURR:PROT:LEV?'))
+        else:
+            return 1
 
     def configure_source(self, src_type='CURR', src_mode='FIX'):
         """refer to p 18-73 of the KT2400 manual"""
@@ -224,9 +231,9 @@ class KT2400(Instrument):
             self.write(':SOUR:VOLT %f' % volt_val)
 
     def set_current(self, curr_val):
-        """set the current for the output, does not turn output on"""
+        """set the current (in uA) for the output, does not turn output on"""
         if not self.mock_mode:
-            self.write(':SOUR:CURR %f' % curr_val)
+            self.write(':SOUR:CURR %f' % (curr_val * 1e-6))
 
     def enable_output(self):
         """turn the output of the KT2400 on"""
@@ -243,16 +250,21 @@ class KT2400(Instrument):
 
     def enquire_auto_output_off(self):
         """refer to p. 13 -7 of the KT2400 manual"""
-        return bool(int(self.ask(':SOUR:CLE:AUTO?')))
+        if not self.mock_mode:
+            return bool(int(self.ask(':SOUR:CLE:AUTO?')))
+        else:
+            return False
 
     def enable_auto_output_off(self):
         """refer to p. 13 -7 of the KT2400 manual"""
-        self.write(':SOUR:CLE:AUTO ON')
+        if not self.mock_mode:
+            self.write(':SOUR:CLE:AUTO ON')
         self.auto_output_off = True
 
     def disable_auto_output_off(self):
         """refer to p. 13 -7 of the KT2400 manual"""
-        self.write(':SOUR:CLE:AUTO OFF')
+        if not self.mock_mode:
+            self.write(':SOUR:CLE:AUTO OFF')
         self.auto_output_off = False
 
 
@@ -293,5 +305,7 @@ def test_auto_source_and_meas():
 
     i.disable_auto_output_off()
 
-    print(i.source_and_measure('I', 0.00001))
     print(i.source_and_measure('V', 2))
+    print(i.source_and_measure('I', 0.00001))
+    print(i.source_and_measure('I', 0.000002))
+    print(i.source_and_measure('I', 0.000003))

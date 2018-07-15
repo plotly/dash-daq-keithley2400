@@ -151,13 +151,11 @@ class PrologixController(object):
         self.mock = mock
 
         if not self.mock:
-
             if com_port is None:
                 # the user didn't provide a COM port, so we look for one
                 com_port = find_prologix_ports()
 
                 if com_port != []:
-
                     if len(com_port) > 1:
                         logging.warning("There is more than one Prologix \
                          controller, we are connecting to %s" % (com_port[0]))
@@ -167,24 +165,23 @@ class PrologixController(object):
                     self.connection = serial.Serial(
                         com_port,
                         baud_rate,
+                        xonxoff=True,
+                        stopbits=serial.STOPBITS_TWO,
                         timeout=timeout
                     )
-
                 else:
-
                     self.connection = None
                     print("There is no Prologix controller to connect to")
-
             else:
                 try:
                     self.connection = serial.Serial(
                         com_port,
                         baud_rate,
+                        xonxoff=True,
+                        stopbits=serial.STOPBITS_TWO,
                         timeout=timeout
                     )
-
                 except serial.serialutil.SerialException:
-
                     self.connection = None
                     print(
                         "The port %s is not attributed to any device"
@@ -192,7 +189,6 @@ class PrologixController(object):
                     )
 
             if self.connection is not None:
-
                 # set the connector in controller mode and let the user
                 self.write("++mode 1")
                 # auto == 1 : ask for read without sending another command.
@@ -220,7 +216,6 @@ class PrologixController(object):
                     % (version_number[:-2], com_port)
                 )
             else:
-
                 print("The connection to the Prologix connector failed")
 
     def __str__(self):

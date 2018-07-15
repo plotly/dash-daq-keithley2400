@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # In[]:
 # Import required libraries
 import numpy as np
@@ -13,17 +14,12 @@ import dash_daq as daq
 from dash_daq_drivers import keithley_instruments
 
 # Instance of a Keithley2400 connected with Prologix GPIB to USB controller
-FIRST_TIME = True
-if FIRST_TIME:
-    iv_generator = keithley_instruments.KT2400(
-        'GPIB0::11',
-        mock_mode=False,
-        prologix='COM3',
-        auto=0
-    )
-    print(FIRST_TIME)
-    FIRST_TIME = False
-    print(FIRST_TIME)
+iv_generator = keithley_instruments.KT2400(
+    'GPIB0::11',
+    mock_mode=False,
+    prologix='COM3',
+    auto=0
+)
 
 
 class UsefulVariables:
@@ -112,7 +108,7 @@ def get_source_units(source='V'):
         measure_unit = 'A'
     elif source == 'I':
         # we source current and measure voltage
-        source_unit = 'A'
+        source_unit = 'μA'
         measure_unit = 'V'
 
     return source_unit, measure_unit
@@ -125,7 +121,7 @@ def get_source_max(source='V'):
         return 20
     elif source == 'I':
         # we source current and measure voltage
-        return 1e-6
+        return 100
 
 
 h_style = {
@@ -793,9 +789,69 @@ def sweep_div_toggle_style(mode_val):
         }
 
 
+@app.callback(
+    Output('source-knob', 'max'),
+    [],
+    [
+        State('source-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+    ]
+)
+def source_knob_max(src_type):
+    """update max value upon changing source type"""
+    return get_source_max(src_type)
+
+
+@app.callback(
+    Output('sweep-start', 'max'),
+    [],
+    [
+        State('source-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+    ]
+)
+def sweep_start_max(src_type):
+    """update max value upon changing source type"""
+    return get_source_max(src_type)
+
+
+@app.callback(
+    Output('sweep-stop', 'max'),
+    [],
+    [
+        State('source-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+    ]
+)
+def sweep_stop_max(src_type):
+    """update max value upon changing source type"""
+    return get_source_max(src_type)
+
+
+@app.callback(
+    Output('sweep-step', 'max'),
+    [],
+    [
+        State('source-choice', 'value')
+    ],
+    [
+        Event('source-choice', 'change'),
+    ]
+)
+def sweep_step_max(src_type):
+    """update max value upon changing source type"""
+    return get_source_max(src_type)
+
+
 # ======= Applied/measured values display =======
 @app.callback(
-    Output('source-knob', 'value'),
+    Output('sweep-step', 'value'),
     [],
     [
         State('source-knob', 'value'),

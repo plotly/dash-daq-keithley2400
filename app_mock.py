@@ -975,6 +975,7 @@ def set_source_display(
 
     return np.round(answer, 4)
 
+
 @app.callback(
     Output('measure-display', 'value'),
     [
