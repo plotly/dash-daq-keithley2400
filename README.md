@@ -24,6 +24,8 @@
 	```
 	$ python app.py
 	```
+	
+	[Heroku app](https://dash-daq-iv-tracer.herokuapp.com/)
 ## Dash
 
 Go to this link to learn about [Dash](https://plot.ly/products/dash/).
