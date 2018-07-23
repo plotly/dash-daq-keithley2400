@@ -33,6 +33,8 @@ INTF_NONE = 'None'
 
 PROLOGIX_COM_PORT = "COM5"
 
+print('USING THIS COM UTIL')
+
 
 def list_gpib_ports():
     """ use pyvisa to list the GPIB ports """
@@ -145,9 +147,13 @@ class PrologixController(object):
             mock=False,
             auto=1,
             baud_rate=9600,
-            timeout=3
+            timeout=3,
+            **kwargs
     ):
 
+        print('PROLOGIX')
+        print(com_port)
+        print(kwargs)
         self.mock = mock
 
         if not self.mock:
@@ -194,6 +200,7 @@ class PrologixController(object):
                 # auto == 1 : ask for read without sending another command.
                 # auto == 0 : simply send the command.
                 self.auto = auto
+                print(auto)
                 self.write("++auto %i" % self.auto)
 
                 # check the version
@@ -221,7 +228,7 @@ class PrologixController(object):
     def __str__(self):
         if self.connection is not None:
             self.write("++ver")
-            return self.readline()
+            return (self.connection.readline()).decode()
         else:
             return ""
 
@@ -234,7 +241,7 @@ class PrologixController(object):
         if not cmd.endswith('\n'):
             cmd += '\n'
         if self.connection is not None:
-            # print("Prologix in : ", cmd)
+            print("Prologix in : ", cmd)
             self.connection.write(cmd.encode())
 
     def read(self, num_bit):
@@ -243,7 +250,7 @@ class PrologixController(object):
             if not self.auto:
                 self.write('++read eoi')
             answer = self.connection.read(num_bit)
-            # print("Prologix out (read) : ", answer)
+            print("Prologix out (read) : ", answer)
             return (answer).decode()
         else:
             return ""
@@ -254,7 +261,7 @@ class PrologixController(object):
             if not self.auto:
                 self.write('++read eoi')
             answer = self.connection.readline()
-            # print("Prologix out (readline): ", answer)
+            print("Prologix out (readline): ", answer)
             return answer.decode()
         else:
             return ""

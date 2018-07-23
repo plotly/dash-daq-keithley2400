@@ -60,7 +60,7 @@ SRC_MODES = [
 class KT2400(Instrument):
     """"driver of the Keithley 2400 SourceMeter"""
     def __init__(self,
-                 instr_port_name,
+                 instr_port_name='',
                  mock_mode=False,
                  instr_user_name='KT 2400',
                  **kwargs):
@@ -79,6 +79,9 @@ class KT2400(Instrument):
             'V': 'V',   # Voltage in Volt
             'I': 'A'    # Current in Ampere
         }
+
+        if interface == INTF_PROLOGIX:
+            kwargs['auto'] = 0
 
         super(KT2400, self).__init__(instr_port_name,
                                      instr_id_name='KT2400',
