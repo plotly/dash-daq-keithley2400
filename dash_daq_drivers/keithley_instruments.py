@@ -8,7 +8,7 @@ labprotocol/Keithley2400Manual.pdf'
 import numpy as np
 
 from generic_instruments import Instrument, INTF_PROLOGIX
-#from communication_utils import find_prologix_ports
+
 
 def fake_iv_relation(
     src_type,
@@ -82,7 +82,6 @@ class KT2400(Instrument):
 
         if interface == INTF_PROLOGIX:
             kwargs['auto'] = 0
-            #kwargs[INTF_PROLOGIX] = find_prologix_ports()[0]
 
         super(KT2400, self).__init__(instr_port_name,
                                      instr_id_name='KT2400',
@@ -97,11 +96,7 @@ class KT2400(Instrument):
         self.current_compliance = 0
 
         if instr_port_name:
-            pass
-            #self.initialize()
-        print('Passed __init__ of KT2400')
-
-
+            self.initialize()
 
     def _check_arg(self, arg, arg_list):
         """check if the argument is in a list"""
@@ -133,8 +128,7 @@ class KT2400(Instrument):
 
     def connect(self, instr_port_name, **kwargs):
         super(KT2400, self).connect(instr_port_name, **kwargs)
-        print('Passed connect in KT2400')
-        #self.initialize()
+        self.initialize()
 
     def measure(self, instr_param):
         if instr_param in self.measure_params:
@@ -282,7 +276,9 @@ class KT2400(Instrument):
         """refer to p. 13 -7 of the KT2400 manual"""
         if not self.mock_mode:
             self.write(':SOUR:CLE:AUTO ON')
-        self.auto_output_off = True
+            self.auto_output_off = self.ask(':SOUR:CLE:AUTO?')
+        else:
+            self.auto_output_off = True
 
     def disable_auto_output_off(self):
         """refer to p. 13 -7 of the KT2400 manual"""
@@ -370,8 +366,3 @@ def test_connect_without_prologix():
     print(i.source_and_measure('I', 0.00001))
     print(i.source_and_measure('I', 0.000002))
     print(i.source_and_measure('I', 0.000003))
-
-# test_auto_source_and_meas()
-
-#test_connect_after_initialization()
-test_connect_without_prologix()

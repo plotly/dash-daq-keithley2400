@@ -16,7 +16,6 @@ INTF_PROLOGIX = 'prologix'
 INTF_SERIAL = 'serial'
 INTF_INTERNAL = 'internal'
 
-print('USING THIS FILE!!')
 
 class Instrument(object):
     """generic instrument class"""
@@ -88,16 +87,10 @@ class Instrument(object):
                     # if it was the COM PORT number we initiate an instance
                     # of prologix controller
                     if "COM" in kwargs[INTF_PROLOGIX]:
-                        #if 'auto' in kwargs:
                         self.instr_connexion = PrologixController(
                             com_port=kwargs[INTF_PROLOGIX],
                             **kwargs
                         )
-                       # else:
-                        #    self.instr_connexion = PrologixController(
-                        #        com_port=kwargs[INTF_PROLOGIX]
-                        #    )
-
                 else:
                     # it was the PrologixController instance
                     self.instr_connexion = kwargs[INTF_PROLOGIX]
@@ -116,8 +109,6 @@ class Instrument(object):
                 print('Searching for Prologix Controller...')
                 self.instr_connexion = PrologixController(**kwargs)
 
-
-        print(self.instr_connexion.connection)
         if not self.mock_mode and instr_port_name is not '':
             self.connect(instr_port_name, **kwargs)
 
@@ -197,8 +188,6 @@ with the instrument %s" % self.instr_id_name))
 
         if instr_port_name is None:
             instr_port_name = self.instr_port_name
-
-        #print(instr_port_name)
 
         if self.mock_mode:
             print(
