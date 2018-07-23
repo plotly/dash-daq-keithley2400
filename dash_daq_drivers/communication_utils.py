@@ -99,12 +99,11 @@ def find_prologix_ports():
     """
 
     serial_ports = list_serial_ports()
-
     result = []
     for port in serial_ports:
         try:
             s = serial.Serial(port, 9600, timeout=0.2)
-            s.write("++mode 1\n++auto 1\n++ver\n".encode())
+            s.write("++mode 1\n++auto 0\n++ver\n".encode())
             answer = s.readline()
             prologix_controller = "Prologix GPIB-USB Controller"
             prologix_controller = prologix_controller.encode()
@@ -147,7 +146,7 @@ class PrologixController(object):
             mock=False,
             auto=1,
             baud_rate=9600,
-            timeout=3,
+            timeout=5,
             **kwargs
     ):
 
@@ -160,6 +159,7 @@ class PrologixController(object):
             if com_port is None:
                 # the user didn't provide a COM port, so we look for one
                 com_port = find_prologix_ports()
+                print(com_port)
 
                 if com_port != []:
                     if len(com_port) > 1:
@@ -167,7 +167,8 @@ class PrologixController(object):
                          controller, we are connecting to %s" % (com_port[0]))
 
                     com_port = com_port[0]
-
+                    #print(com_port == 'COM3')
+                    #   com_port = 'COM3'
                     self.connection = serial.Serial(
                         com_port,
                         baud_rate,
@@ -179,6 +180,8 @@ class PrologixController(object):
                     self.connection = None
                     print("There is no Prologix controller to connect to")
             else:
+
+                print(com_port)
                 try:
                     self.connection = serial.Serial(
                         com_port,
@@ -200,7 +203,6 @@ class PrologixController(object):
                 # auto == 1 : ask for read without sending another command.
                 # auto == 0 : simply send the command.
                 self.auto = auto
-                print(auto)
                 self.write("++auto %i" % self.auto)
 
                 # check the version
@@ -241,7 +243,7 @@ class PrologixController(object):
         if not cmd.endswith('\n'):
             cmd += '\n'
         if self.connection is not None:
-            print("Prologix in : ", cmd)
+           #  print("Prologix in : ", cmd)
             self.connection.write(cmd.encode())
 
     def read(self, num_bit):
@@ -250,7 +252,7 @@ class PrologixController(object):
             if not self.auto:
                 self.write('++read eoi')
             answer = self.connection.read(num_bit)
-            print("Prologix out (read) : ", answer)
+            # print("Prologix out (read) : ", answer)
             return (answer).decode()
         else:
             return ""
@@ -261,7 +263,7 @@ class PrologixController(object):
             if not self.auto:
                 self.write('++read eoi')
             answer = self.connection.readline()
-            print("Prologix out (readline): ", answer)
+            # print("Prologix out (readline): ", answer)
             return answer.decode()
         else:
             return ""

@@ -7,8 +7,8 @@ labprotocol/Keithley2400Manual.pdf'
 """
 import numpy as np
 
-from .instruments import Instrument, INTF_PROLOGIX
-
+from generic_instruments import Instrument, INTF_PROLOGIX
+#from communication_utils import find_prologix_ports
 
 def fake_iv_relation(
     src_type,
@@ -82,6 +82,7 @@ class KT2400(Instrument):
 
         if interface == INTF_PROLOGIX:
             kwargs['auto'] = 0
+            #kwargs[INTF_PROLOGIX] = find_prologix_ports()[0]
 
         super(KT2400, self).__init__(instr_port_name,
                                      instr_id_name='KT2400',
@@ -91,9 +92,16 @@ class KT2400(Instrument):
                                      instr_mesurands=instr_mesurands,
                                      **kwargs)
 
-        self.auto_output_off = self.enquire_auto_output_off()
-        self.voltage_compliance = self.get_voltage_compliance()
-        self.current_compliance = self.get_current_compliance()
+        self.auto_output_off = False
+        self.voltage_compliance = 0
+        self.current_compliance = 0
+
+        if instr_port_name:
+            pass
+            #self.initialize()
+        print('Passed __init__ of KT2400')
+
+
 
     def _check_arg(self, arg, arg_list):
         """check if the argument is in a list"""
@@ -115,6 +123,18 @@ class KT2400(Instrument):
         """refer to p 15-4 of the KT2400 manual"""
         if not self.mock_mode:
             self.write(':STAT:PRES')
+
+    def initialize(self):
+        """get the compliance and the auto output parameters"""
+        if self.instr_connexion is not None:
+            self.auto_output_off = self.enquire_auto_output_off()
+            self.voltage_compliance = self.get_voltage_compliance()
+            self.current_compliance = self.get_current_compliance()
+
+    def connect(self, instr_port_name, **kwargs):
+        super(KT2400, self).connect(instr_port_name, **kwargs)
+        print('Passed connect in KT2400')
+        #self.initialize()
 
     def measure(self, instr_param):
         if instr_param in self.measure_params:
@@ -268,7 +288,9 @@ class KT2400(Instrument):
         """refer to p. 13 -7 of the KT2400 manual"""
         if not self.mock_mode:
             self.write(':SOUR:CLE:AUTO OFF')
-        self.auto_output_off = False
+            self.auto_output_off = self.ask(':SOUR:CLE:AUTO?')
+        else:
+            self.auto_output_off = False
 
 
 def test_manual_source_and_meas():
@@ -308,7 +330,48 @@ def test_auto_source_and_meas():
 
     i.disable_auto_output_off()
 
+    print(i.ask('*IDN?'))
+
     print(i.source_and_measure('V', 2))
     print(i.source_and_measure('I', 0.00001))
     print(i.source_and_measure('I', 0.000002))
     print(i.source_and_measure('I', 0.000003))
+
+
+def test_connect_after_initialization():
+    i = KT2400(
+        mock_mode=False,
+        prologix='COM3',
+        auto=0
+    )
+
+    i.connect('GPIB0::11')
+
+    i.enable_auto_output_off()
+
+    print(i.source_and_measure('V', 2))
+    print(i.source_and_measure('I', 0.00001))
+    print(i.source_and_measure('I', 0.000002))
+    print(i.source_and_measure('I', 0.000003))
+
+
+def test_connect_without_prologix():
+    i = KT2400(
+        mock_mode=False
+    )
+
+    i.connect('GPIB0::11')
+
+    i.enable_auto_output_off()
+
+    print(i.ask('*IDN?'))
+
+    print(i.source_and_measure('V', 2))
+    print(i.source_and_measure('I', 0.00001))
+    print(i.source_and_measure('I', 0.000002))
+    print(i.source_and_measure('I', 0.000003))
+
+# test_auto_source_and_meas()
+
+#test_connect_after_initialization()
+test_connect_without_prologix()

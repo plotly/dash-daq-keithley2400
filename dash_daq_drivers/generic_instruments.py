@@ -116,6 +116,8 @@ class Instrument(object):
                 print('Searching for Prologix Controller...')
                 self.instr_connexion = PrologixController(**kwargs)
 
+
+        print(self.instr_connexion.connection)
         if not self.mock_mode and instr_port_name is not '':
             self.connect(instr_port_name, **kwargs)
 
