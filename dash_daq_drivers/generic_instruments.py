@@ -2,7 +2,7 @@
 """
 Created on Tue Mar 27 18:12:03 2018
 
-@author: pfduc
+@author: Pierre-Francois Duc
 """
 
 import serial
@@ -22,7 +22,7 @@ class Instrument(object):
 
     def __init__(
         self,
-        instr_port_name='default',
+        instr_port_name='',
         instr_id_name='default',
         instr_user_name='default',
         mock_mode=False,
@@ -87,16 +87,10 @@ class Instrument(object):
                     # if it was the COM PORT number we initiate an instance
                     # of prologix controller
                     if "COM" in kwargs[INTF_PROLOGIX]:
-                        if 'auto' in kwargs:
-                            self.instr_connexion = PrologixController(
-                                kwargs[INTF_PROLOGIX],
-                                auto=kwargs['auto']
-                            )
-                        else:
-                            self.instr_connexion = PrologixController(
-                                kwargs[INTF_PROLOGIX]
-                            )
-
+                        self.instr_connexion = PrologixController(
+                            com_port=kwargs[INTF_PROLOGIX],
+                            **kwargs
+                        )
                 else:
                     # it was the PrologixController instance
                     self.instr_connexion = kwargs[INTF_PROLOGIX]
@@ -112,9 +106,10 @@ class Instrument(object):
 
             else:
                 # the connection doesn't exist so we create it
-                self.instr_connexion = PrologixController()
+                print('Searching for Prologix Controller...')
+                self.instr_connexion = PrologixController(**kwargs)
 
-        if not self.mock_mode and instr_port_name is not 'default':
+        if not self.mock_mode and instr_port_name is not '':
             self.connect(instr_port_name, **kwargs)
 
     def __str__(self):
@@ -191,8 +186,9 @@ with the instrument %s" % self.instr_id_name))
     def connect(self, instr_port_name=None, **kwargs):
         """implements the connexion to the instrument"""
 
-        if instr_port_name is not None:
+        if instr_port_name is None:
             instr_port_name = self.instr_port_name
+
         if self.mock_mode:
             print(
                 "Connect %s, named %s on port %s, with %s"
@@ -239,6 +235,7 @@ with the instrument %s" % self.instr_id_name))
 
                 self.instr_connexion.write(
                     ("++addr %s" % self.instr_port_name))
+
                 # the \n termchar is embedded in the PrologixController class
                 self.term_chars = ""
 

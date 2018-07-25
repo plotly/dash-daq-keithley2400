@@ -31,7 +31,7 @@ INTF_SERIAL = 'serial'
 
 INTF_NONE = 'None'
 
-PROLOGIX_COM_PORT = "COM5"
+PROLOGIX_COM_PORT = "COM3"
 
 
 def list_gpib_ports():
@@ -95,14 +95,12 @@ def find_prologix_ports():
         go through the serial ports and wee which one returns the prologix
         version command
     """
-
     serial_ports = list_serial_ports()
-
     result = []
     for port in serial_ports:
         try:
             s = serial.Serial(port, 9600, timeout=0.2)
-            s.write("++mode 1\n++auto 1\n++ver\n".encode())
+            s.write("++mode 1\n++auto 0\n++ver\n".encode())
             answer = s.readline()
             prologix_controller = "Prologix GPIB-USB Controller"
             prologix_controller = prologix_controller.encode()
@@ -145,7 +143,8 @@ class PrologixController(object):
             mock=False,
             auto=1,
             baud_rate=9600,
-            timeout=3
+            timeout=5,
+            **kwargs
     ):
 
         self.mock = mock
@@ -161,6 +160,10 @@ class PrologixController(object):
                          controller, we are connecting to %s" % (com_port[0]))
 
                     com_port = com_port[0]
+                    print(
+                        "... found a Prologix controller on the port '%s'" %
+                        com_port
+                    )
 
                     self.connection = serial.Serial(
                         com_port,
@@ -173,6 +176,7 @@ class PrologixController(object):
                     self.connection = None
                     print("There is no Prologix controller to connect to")
             else:
+
                 try:
                     self.connection = serial.Serial(
                         com_port,
@@ -221,7 +225,7 @@ class PrologixController(object):
     def __str__(self):
         if self.connection is not None:
             self.write("++ver")
-            return self.readline()
+            return (self.connection.readline()).decode()
         else:
             return ""
 
@@ -234,7 +238,7 @@ class PrologixController(object):
         if not cmd.endswith('\n'):
             cmd += '\n'
         if self.connection is not None:
-            # print("Prologix in : ", cmd)
+            #  print("Prologix in : ", cmd)
             self.connection.write(cmd.encode())
 
     def read(self, num_bit):
