@@ -7,7 +7,7 @@ labprotocol/Keithley2400Manual.pdf'
 """
 import numpy as np
 
-from generic_instruments import Instrument, INTF_PROLOGIX
+from .generic_instruments import Instrument, INTF_PROLOGIX
 
 
 def fake_iv_relation(
